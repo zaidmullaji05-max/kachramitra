@@ -1,0 +1,35 @@
+.git/
+.github/
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+.mypy_cache/
+.env
+backend/.env
+
+# datasets (large, not redistributable)
+data/raw/
+data/raw_demo/
+data/demo/
+data/manifest.csv
+
+# local state
+backend/data/
+*.db
+*.db-shm
+*.db-wal
+
+# training scratch
+artifacts/eval/
+artifacts_demo/eval/
+artifacts/*.pt
+artifacts_demo/*.pt
+data/raw_demo/
+
+# editor / OS
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

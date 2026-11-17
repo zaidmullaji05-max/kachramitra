@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+
+# Datasets (large, and mostly not redistributable)
+data/raw/
+data/raw_demo/
+data/manifest.csv
+data/demo/
+backend/data/
+
+# Trained artefacts. The two demo inference files are kept so a fresh clone can
+# deploy to Render immediately; checkpoints and real training runs stay local.
+artifacts_demo/*
+!artifacts_demo/waste_model_int8.onnx
+!artifacts_demo/labels.json
+artifacts/
+*.onnx
+*.pt
+*.tflite
+runs/
+
+# Secrets / local config
+.env
+.env.local
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

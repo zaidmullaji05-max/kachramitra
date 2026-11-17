@@ -1,0 +1,254 @@
+# 11 – Deploy: Vercel (frontend) + Render (backend) + Cloudinary (images)
+
+This is the free-tier deployment this project is set up for:
+
+```
+Browser
+  │  static HTML/CSS/JS
+  ▼
+Vercel  ──https──►  Render web service (FastAPI + ONNX)
+                         │
+                         └──optional signed upload──► Cloudinary
+```
+
+| Piece | Host | Cost | What it runs |
+|---|---|---|---|
+| Frontend | Vercel (Hobby) | ₹0 | `frontend/` — no build step |
+| API | Render (Free web service) | ₹0 | `backend/app/main.py` via uvicorn |
+| Images | Cloudinary (Free) | ₹0 | optional, opt-in sanitized scan photos |
+| Database | Render's ephemeral disk | ₹0 | SQLite; resets on deploy/restart |
+
+The repository already contains `vercel.json` and `render.yaml`; you do not need to
+invent a build pipeline.
+
+---
+
+## 1. Put the project on GitHub
+
+Both hosts deploy from a Git repository.
+
+```powershell
+cd "C:\Users\zaidm\OneDrive\Documents\Default Project"
+git init
+git add .
+git commit -m "Kachra Mitra: app + deployment config"
+git branch -M main
+git remote add origin https://github.com/<you>/kachra-mitra.git
+git push -u origin main
+```
+
+`.gitignore` already excludes `.venv/`, `__pycache__/`, `data/raw/`, `artifacts/`, and
+`.env`. The two files Render needs — `artifacts_demo/waste_model_int8.onnx` and
+`artifacts_demo/labels.json` — are explicitly whitelisted, so a normal `git add .`
+is enough. Checkpoints (`*.pt`), the raw datasets, and real training runs stay out of Git.
+
+> If no model is in the repo, the API still boots. `/health` says
+> `classifier.ready: false` and `/classify` returns 503. Chat and the map still work.
+
+---
+
+## 2. Backend on Render
+
+### Option A — Blueprint (recommended)
+
+1. Open <https://dashboard.render.com/blueprints> → **New Blueprint Instance**.
+2. Connect the GitHub repo. Render finds `render.yaml`.
+3. When prompted for `CLOUDINARY_URL`, either paste the value from step 4 or leave it
+   blank (image storage then stays off).
+4. **Apply**. Wait for the first build (2–5 minutes).
+5. Copy the service URL, e.g. `https://kachra-mitra-api.onrender.com`.
+6. Check `https://kachra-mitra-api.onrender.com/health`. You want
+   `"status": "ok"` and, if the model was committed, `"classifier": {"ready": true}`.
+
+### Option B — Manual web service
+
+| Setting | Value |
+|---|---|
+| Runtime | Python 3 |
+| Build command | `pip install -r backend/requirements.txt` |
+| Start command | `uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT` |
+| Health check path | `/health` |
+| Plan | Free |
+
+Add the environment variables from `render.yaml`. At minimum:
+
+```
+ONNX_PATH=artifacts_demo/waste_model_int8.onnx
+LABELS_PATH=artifacts_demo/labels.json
+LLM_PROVIDER=fake
+FACILITY_PROVIDER=fixture
+DB_PATH=/tmp/kachra-mitra.db
+ALLOW_ORIGINS=*
+```
+
+Free-tier facts you must plan around:
+
+- The service **sleeps after ~15 minutes** of inactivity; the next request takes
+  30–60 seconds. Say this before a demo, or ping `/health` a minute beforehand.
+- The disk is **ephemeral**. SQLite history survives until the next deploy or restart.
+  That is fine for a student demo; for persistence use Render Postgres or Turso.
+- 512 MB RAM is enough for ONNX int8 inference (the model is 1.7 MB). Do not install
+  torch on Render — it is only needed for training.
+- If the build runs out of memory installing `onnxruntime`, make sure you are not
+  accidentally installing `requirements-ml.txt`.
+
+---
+
+## 3. Frontend on Vercel
+
+`vercel.json` at the repo root already sets `"outputDirectory": "frontend"`.
+
+1. Edit **`frontend/config.js`** and put the Render URL there:
+
+   ```js
+   window.WASTE_API_BASE = "https://kachra-mitra-api.onrender.com";
+   ```
+
+   This is the one manual edit. Without it the static site calls its own Vercel domain
+   and every API request 404s.
+
+2. Commit and push that change.
+
+3. Open <https://vercel.com/new>, import the repo.
+
+4. Configure:
+
+   | Setting | Value |
+   |---|---|
+   | Framework preset | **Other** |
+   | Root directory | `./` (repo root) |
+   | Build command | *(empty)* |
+   | Output directory | `frontend` (from `vercel.json`) |
+
+5. **Deploy**. Your app is at `https://<project>.vercel.app`.
+
+6. Tighten CORS on Render: set `ALLOW_ORIGINS` to the exact Vercel origin, e.g.
+   `https://kachra-mitra.vercel.app`, and save. Comma-separate multiple origins.
+   Keep `*` only while testing.
+
+### CLI alternative
+
+```powershell
+npm i -g vercel
+vercel --prod
+```
+
+Vercel reads `vercel.json` and uploads only the static frontend.
+
+### Why the frontend is not served by Render
+
+The API also mounts the frontend at `/app/` for local use. On Render that path works
+too, but Vercel gives you a global CDN, instant cache invalidation, and a cleaner URL.
+Both can coexist.
+
+---
+
+## 4. Cloudinary (optional image storage)
+
+The default privacy design stores **no images**. Turning Cloudinary on is a deliberate
+two-variable decision.
+
+### 4.1 Create the account
+
+1. Sign up at <https://cloudinary.com/users/register/free> (free plan, no card).
+2. Open **Dashboard → Programmable Media → API environment variable**. Copy the whole
+   `cloudinary://<api_key>:<api_secret>@<cloud_name>` string.
+3. Keep it secret. It is a signed-upload credential; never put it in `frontend/`.
+
+### 4.2 Configure Render
+
+Add to the Render service's **Environment**:
+
+```
+CLOUDINARY_URL=cloudinary://123456789012345:abcdefghijklmnopqrstuvwxyz@your-cloud
+IMAGE_STORAGE=true
+CLOUDINARY_FOLDER=kachra-mitra/scans
+```
+
+Save → Render redeploys. `/health` should now include `"image_storage": true`.
+
+### 4.3 What gets uploaded
+
+`backend/app/media.py` runs a **server-side signed upload** after classification:
+
+- the input has already been decoded, EXIF-rotated, and re-encoded by `imaging.py`;
+- a second JPEG re-encode drops EXIF/GPS and caps the file size;
+- the public id is the random `scn_…` id — the original filename never leaks;
+- Cloudinary applies `w=1024, h=1024, c=limit` and `q=auto:good, f=auto`;
+- if Cloudinary is down, the exception is logged and the scan still succeeds with
+  `image_url: null`.
+
+The URL is stored in `scans.image_url` and shown as a thumbnail on the **Impact** tab.
+
+### 4.4 Privacy copy changes automatically
+
+When storage is enabled, `/history` returns `"image_storage": true` and the Impact
+subtitle changes in EN/HI/MR from “Scans are stored without images” to “Scan photos are
+stored in Cloudinary”. Do not enable this without updating your report/privacy notice:
+the `secure_url` is a **public URL** for anyone who has it (the id is random, but it is
+not access-controlled).
+
+If you need private assets later, move to Cloudinary's `type="private"` + signed
+delivery URLs; the current thumbnail flow assumes public delivery.
+
+### 4.5 Free-plan limits
+
+Cloudinary's free plan is credit-based (roughly 25 GB of storage/bandwidth per month
+at the time of writing). A 1024 px JPEG is ~100–200 KB, so thousands of scans fit
+comfortably. Check the current limits on your dashboard.
+
+### 4.6 Delete an image
+
+Cloudinary dashboard → **Media Library** → `kachra-mitra/scans`, or call the Admin API.
+The SQLite row keeps the old URL; that is harmless, the thumbnail 404s.
+
+---
+
+## 5. Verify the deployment
+
+```powershell
+# backend
+curl.exe https://kachra-mitra-api.onrender.com/health
+curl.exe "https://kachra-mitra-api.onrender.com/facilities?lat=19.11&lng=72.84&category=ewaste"
+
+# frontend (open in a browser)
+start https://kachra-mitra.vercel.app
+```
+
+Manual checklist:
+
+1. Scan tab → choose a photo → result sheet shows item/category/steps.
+2. Chat tab → ask in Hindi → rule-card answer with hazard warning for a CFL/battery.
+3. Map tab → allow location (HTTPS is required; Vercel gives you HTTPS).
+4. Impact tab → scan appears; with Cloudinary on, the thumbnail loads.
+5. Browser console → no CORS errors.
+
+---
+
+## 6. Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| `Failed to fetch` on the Vercel site | API base still empty or Render is asleep | set `frontend/config.js`, wait for cold start |
+| CORS error naming the Vercel origin | `ALLOW_ORIGINS` does not include it | set the exact origin on Render |
+| `/classify` 503 | model files missing on Render | commit the ONNX + labels or fix `ONNX_PATH` |
+| `/health` 502 / build fails | wrong build command | `pip install -r backend/requirements.txt` only |
+| History disappeared | Render restarted, `/tmp` reset | expected on free; use a managed DB for persistence |
+| `image_storage: false` after setting the URL | `IMAGE_STORAGE` not `true`, or URL malformed | set both, check the `cloudinary://` format |
+| Thumbnails broken but scans work | Cloudinary upload failed | Render logs contain `Cloudinary upload failed`; check credentials |
+| Map shows sample pins | `FACILITY_PROVIDER=fixture` | set `overpass` for live OSM data |
+| Hindi text looks broken in logs | Windows cp1252 console | `$env:PYTHONIOENCODING="utf-8"` (not a deploy issue) |
+
+---
+
+## 7. Cost summary
+
+| Item | Free tier | When you would pay |
+|---|---|---|
+| Vercel Hobby | 100 GB bandwidth/month | heavy traffic or a team |
+| Render Free | 512 MB, sleeps, ephemeral disk | always-on or persistent disk (~$7/mo) |
+| Cloudinary Free | credit-based storage/bandwidth | many thousands of photos |
+| Groq / Gemini | free developer tiers | higher rate limits |
+| OpenStreetMap / Overpass | free, fair use | a hosted routing provider |
+
+Total for a student demo: **₹0**, with the caveats above stated honestly.

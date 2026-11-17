@@ -1,0 +1,44 @@
+# Render blueprint: the FastAPI backend.
+# Import the repo at https://dashboard.render.com/blueprints and Render reads this file.
+services:
+  - type: web
+    name: kachra-mitra-api
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Render's Python build image; keep in sync with docs/08-setup.md
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      # The demo model ships in the repo so the API works on the first deploy.
+      # Replace with artifacts/ after training a real model.
+      - key: ONNX_PATH
+        value: artifacts_demo/waste_model_int8.onnx
+      - key: LABELS_PATH
+        value: artifacts_demo/labels.json
+      - key: LLM_PROVIDER
+        value: fake
+      - key: FACILITY_PROVIDER
+        value: fixture
+      # Free Render disks are ephemeral: history survives until the next deploy/restart.
+      - key: DB_PATH
+        value: /tmp/kachra-mitra.db
+      # Set this to your Vercel URL after the frontend is live, e.g.
+      # https://kachra-mitra.vercel.app  (or keep * while testing)
+      - key: ALLOW_ORIGINS
+        value: "*"
+      - key: RATE_LIMIT_PER_MIN
+        value: "30"
+      # Off until a Cloudinary URL is supplied below.
+      - key: IMAGE_STORAGE
+        value: "true"
+      - key: CLOUDINARY_FOLDER
+        value: kachra-mitra/scans
+      # Dashboard -> Programmable Media -> API environment variable.
+      # Render prompts for this on first deploy. Leave blank to keep image storage off.
+      - key: CLOUDINARY_URL
+        sync: false

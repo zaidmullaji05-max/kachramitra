@@ -1,0 +1,79 @@
+name: ci
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    env:
+      PYTHONIOENCODING: utf-8
+      LLM_PROVIDER: fake
+      FACILITY_PROVIDER: fixture
+      # no model in CI: the classify tests assert the 503 path
+      ONNX_PATH: artifacts/does-not-exist.onnx
+      LABELS_PATH: artifacts/does-not-exist.json
+      DB_PATH: backend/data/ci.db
+      RATE_LIMIT_PER_MIN: "1000"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install runtime + test deps (no torch)
+        run: pip install -r backend/requirements.txt
+
+      - name: Compile every Python file
+        run: python -m compileall -q backend ml tools
+
+      - name: Build demo manifest (data pipeline smoke test)
+        run: |
+          python tools/make_demo_data.py
+          python tools/build_manifest.py --raw-dir data/raw_demo --out data/demo/manifest.csv
+
+      - name: Knowledge base sanity
+        run: |
+          python - <<'PY'
+          from backend.app.knowledge import get_knowledge
+          kb = get_knowledge()
+          stats = kb.stats()
+          assert stats["docs"] >= 6, stats
+          assert stats["chunks"] >= 30, stats
+          assert kb.search("swollen battery"), "battery passage not retrievable"
+          print(stats)
+          PY
+
+      - name: API tests
+        run: python -m pytest backend/tests -q
+
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -t kachra-mitra:ci .
+      - name: Boot and hit /health
+        run: |
+          docker run -d --name app -p 8000:8000 kachra-mitra:ci
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8000/health; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:8000/health
+          curl -fsS "http://127.0.0.1:8000/facilities?lat=19.11&lng=72.84&category=ewaste"
+      - name: Logs
+        if: always()
+        run: docker logs app || true
+      - name: Stop
+        if: always()
+        run: docker rm -f app || true

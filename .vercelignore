@@ -1,0 +1,16 @@
+# Vercel only needs the static frontend. Keep large/local files out of uploads.
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+backend/
+data/
+artifacts/
+artifacts_demo/
+docs/
+ml/
+tools/
+.github/
+.env
+.git/
