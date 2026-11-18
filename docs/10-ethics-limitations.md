@@ -7,16 +7,19 @@ script. The project is useful *because* it is honest about what it does not know
 
 | You **can** say | You **cannot** say |
 |---|---|
-| "The pipeline trains, exports and serves an int8 ONNX classifier." | "It recognises any waste item with 95% accuracy." |
+| "The pipeline serves a pretrained ImageNet ONNX model and maps it to 32 waste items." | "It recognises any waste item with 95% accuracy." |
 | "Macro-F1 on the held-out test split was X." | "It works in every Indian city." |
 | "It explains the SWM 2016 three-stream rule and links the source." | "It gives legal advice." |
 | "It finds nearby collection points from OpenStreetMap." | "Every listed point accepts your item." |
 | "It warns about battery, mercury and sharps hazards." | "It makes disposal safe." |
 | "It runs with zero API keys and zero cloud cost." | "It is production-ready for a municipality." |
 
-The demo model shipped in `artifacts_demo/` is trained on synthetic coloured rectangles.
-Its ~0.97 accuracy is a **pipeline test**, not a waste-classification result. Never put that
-number on a poster.
+The shipped `artifacts_pretrained/` model is **pretrained ImageNet MobileNetV3-Large**,
+not a waste-specific model. It recognises 1,000 everyday objects; 287 of those classes are
+mapped to 27 of our 32 waste items, and everything else returns "not sure". The separate
+`artifacts_demo/` model is trained on synthetic coloured rectangles: its ~0.97 accuracy is
+a **pipeline test**, not a waste-classification result. Never put either number on a poster
+as "waste accuracy".
 
 ## 2. Model limitations (the honest list)
 
@@ -26,9 +29,10 @@ number on a poster.
 2. **Indian items are under-represented.** Milk pouches, sachets, idli batter packets,
    coconut shells, e-waste chargers, agarbatti boxes, medical blister packs — global
    datasets barely contain them. Collect them yourself.
-3. **Closed-set problem.** The model must pick one of 32 items. A shoe, a toy, or a dead
-   rat still gets a label. The confidence gate helps but cannot say "unknown". A proper
-   open-set / `other` class is future work.
+3. **Coverage, not open set.** The ImageNet model knows 1,000 object classes and only 287
+   are mapped to a waste item. A shoe, a toy, or a dead rat stays unmapped and returns
+   "not sure". A vision-LLM key extends this to arbitrary photos; a proper open-set
+   classifier trained on your own `other` class is future work.
 4. **Single-object assumption.** A photo of a full dustbin is not one item. The UI asks for
    one item per photo, but users will ignore that.
 5. **Category ≠ disposal.** "Plastic bottle" is recyclable in one city and refuse-derived

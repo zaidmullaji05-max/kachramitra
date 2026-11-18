@@ -26,16 +26,14 @@ cd backend
 ..\.venv\Scripts\python.exe -m pytest tests -q
 ```
 
-With the demo model, the full classify path also runs:
+With the shipped pretrained model, the full classify path also runs:
 
 ```powershell
-$env:ONNX_PATH="artifacts_demo/waste_model_int8.onnx"
-$env:LABELS_PATH="artifacts_demo/labels.json"
 ..\.venv\Scripts\python.exe -m pytest tests -q
-# 13 passed
+# 27 passed
 ```
 
-What the 13 tests cover:
+What the tests cover:
 
 1. `/health` reports capability flags honestly
 2. `/taxonomy` serves all six categories
@@ -49,7 +47,9 @@ What the 13 tests cover:
 10. Schema validation: empty message 422, unsupported language 422
 11. Knowledge retrieval finds the battery-safety passage
 12. Image path in fake-LLM mode still runs `classify_image`
-13. (plus the health assertion includes knowledge stats)
+13. ImageNet class→item mapping and probability aggregation
+14. Laptop/notebook disambiguation and unknown-object abstention
+15. Vision JSON parsing, provider resolution, and vision→taxonomy conversion
 
 ```powershell
 # API smoke, no browser
@@ -103,9 +103,9 @@ python ml/export_onnx.py --ckpt artifacts/model_best.pt --out artifacts
 docker build -t kachra-mitra .
 ```
 
-`artifacts/` and `artifacts_demo/` are both copied by `COPY . .`; set `ONNX_PATH` to
-whichever exists. If neither does, the API still boots and `/health` says the classifier is
-disabled.
+`artifacts_pretrained/`, `artifacts_demo/` and `artifacts/` are all copied by `COPY . .`;
+the default `ONNX_PATH` points at the pretrained model. If none exists, the API still
+boots and `/health` says the classifier is disabled.
 
 ## 5. Free deployment options (2026)
 
@@ -133,9 +133,16 @@ GROQ_API_KEY=<secret>
 FACILITY_PROVIDER=overpass
 ALLOW_ORIGINS=https://your-frontend.example
 RATE_LIMIT_PER_MIN=20
-ONNX_PATH=artifacts/waste_model_int8.onnx
-LABELS_PATH=artifacts/labels.json
+ONNX_PATH=artifacts_pretrained/mobilenet_v3_large_imagenet.onnx
+LABELS_PATH=artifacts_pretrained/labels.json
 DB_PATH=/data/app.db
+```
+
+Optional open-vocabulary identification on the host:
+
+```
+VISION_PROVIDER=auto
+GEMINI_API_KEY=<secret>
 ```
 
 Notes:

@@ -2,17 +2,49 @@
 
 ## 0. The decision, up front
 
-**Use MobileNetV3-Small with ImageNet transfer learning, classifying one item per photo,
-exported to int8 ONNX, with a vision-LLM as a *fallback* for uncertain images.**
+**Ship a pretrained ImageNet MobileNetV3-Large mapped onto the 32 waste items, with a
+vision-LLM as an optional open-vocabulary fallback. The rest of this document is the
+recipe for training a dataset-specific model once you have real labelled images.**
 
 ```
-photo → MobileNetV3-Small → p(item)
-                                ├─ p ≥ 0.60 and margin ≥ 0.15 → answer + disposal + map
-                                └─ else → vision-LLM second opinion → one follow-up question
-                                          → still unsure → abstain ("can't identify, retake photo")
+photo → MobileNetV3-Large (ImageNet, 1,000 classes)
+           → aggregate class probabilities per waste item
+           → p(item)
+                ├─ p ≥ threshold and margin ≥ 0.15 → answer + disposal + map
+                └─ else → optional vision-LLM second opinion → one follow-up question
+                          → still unsure → abstain ("can't identify, retake photo")
 ```
 
-Everything else in this document justifies that sentence.
+### What actually ships (`artifacts_pretrained/`)
+
+| File | Size | Purpose |
+|---|---|---|
+| `mobilenet_v3_large_imagenet.onnx` | 22 MB | fp32, default `ONNX_PATH` |
+| `mobilenet_v3_large_int8.onnx` | 5.5 MB | smaller/faster alternative |
+| `labels.json` | 70 KB | 1,000 ImageNet class names → 32 waste ids |
+| `mapping_report.md` | small | coverage: **287/1000 classes mapped**, 27/32 items covered |
+
+`tools/imagenet_map.py` owns the mapping. Classes that are not waste objects (dogs,
+cars, buildings) stay unmapped, so the API answers "not sure" instead of forcing them
+into a bin. `ml/imagenet_predict.py` sums the probabilities of all classes that map to
+the same item and includes a laptop/notebook confusion guard.
+
+Rebuild it with:
+
+```powershell
+pip install -r requirements-ml.txt
+python tools/build_imagenet_model.py --out artifacts_pretrained
+```
+
+### Optional vision fallback
+
+Set `GEMINI_API_KEY` (free tier at aistudio.google.com) or `GROQ_API_KEY` and the API
+will ask a vision model to pick the closest taxonomy id for photos outside ImageNet's
+classes. The vision model never writes disposal advice; `data/label_map.yaml` still owns
+the bin, steps, hazards and rule references. Without a key this path is off and the local
+ONNX model is the only identifier.
+
+Everything else in this document justifies the dataset-specific training plan.
 
 ---
 
@@ -167,6 +199,11 @@ Check `torch.cuda.is_available()` is `True`; the script picks the device automat
 The export script re-runs 8 random inputs through PyTorch and onnxruntime and prints
 `max|Δlogit|` + argmax agreement. If agreement is not 100%, **keep fp32** — that is
 quantisation damage, not a bug in your model.
+
+The shipped pretrained model is exported by `tools/build_imagenet_model.py`, not
+`ml/export_onnx.py`; the latter is for a fine-tuned classification head. The pretrained
+builder also merges torch's external `.onnx.data` sidecar into one 22 MB file, which keeps
+GitHub web uploads under the 25 MB limit.
 
 ### TFLite (optional, for offline mobile)
 

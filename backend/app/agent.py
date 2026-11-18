@@ -24,7 +24,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Any
 
-from . import safety
+from . import safety, vision
 from .chat import SYSTEM_PROMPT, LANGUAGE_NAME, rule_answer
 from .config import Settings
 from .facilities import FacilityService
@@ -206,7 +206,7 @@ async def run(req: ChatRequest, settings: Settings, classifier: Any,
 
     # ---- no LLM: deterministic path (still honours the image, via the tool)
     if provider is None:
-        if req.image_base64 and classifier and getattr(classifier, "ready", False):
+        if req.image_base64 and classifier and (getattr(classifier, "ready", False) or vision.enabled(settings)):
             ctx = ToolContext(settings=settings, classifier=classifier, facilities=facilities_svc,
                               lang=req.lang, lat=req.context.lat if req.context else None,
                               lng=req.context.lng if req.context else None)

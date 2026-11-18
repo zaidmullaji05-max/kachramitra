@@ -7,8 +7,9 @@ and find the nearest drop-off point on a map.
 Built for the Indian context: **SWM Rules 2016**, **E-Waste Rules 2022**, **Plastic Waste
 Rules**, **Battery Waste Rules 2022**, and **Bio-Medical Waste Rules 2016**.
 
-Runs with **no API keys and no trained model** — the API honestly reports what is missing
-and the app still answers from rule cards and sample map data.
+Runs with **no API keys** and ships a **pretrained real-object model** — no training step
+needed. If the model file is missing, the API honestly reports what is missing and the app
+still answers from rule cards and sample map data.
 
 ![Scan result](docs/screenshots/scan.jpg)
 
@@ -35,8 +36,8 @@ and the app still answers from rule cards and sample map data.
 ## The 60-second version
 
 ```
-photo ──► MobileNetV3-Small (int8 ONNX, 1.7 MB)
-          └─► item + category + calibrated confidence
+photo ──► optional vision model (Gemini / Groq)  ──► item + confidence
+      └─► or MobileNetV3-Large (ImageNet, ONNX)  ──► 1,000 objects → 32 waste items
               └─► taxonomy card: bin, steps, don't, hazard, rule names
                   ├─► Leaflet map: nearest collection points (OSM / fixtures)
                   └─► chat agent: BM25 over the actual rules + 4 tools
@@ -52,21 +53,48 @@ Design decisions worth defending:
   cannot be paraphrased away by a model.
 - **Confidence gate + margin.** `p < 0.60` **or** `top1 − top2 < 0.15` asks "is it A or B?"
   instead of guessing.
-- **Temperature scaling** so the gate is meaningful (the demo went from 2.9% to 100%
-  coverage at unchanged accuracy).
+- **Pretrained first, vision optional.** The shipped ONNX model recognises 1,000 real
+  ImageNet objects; 287 of those classes map onto our 32 waste items. Set
+  `GEMINI_API_KEY` or `GROQ_API_KEY` to add open-vocabulary identification.
+- **Unmapped means "not sure".** A dog or a car never becomes a confident disposal answer.
 - **No images stored.** Re-encoded uploads drop EXIF/GPS; SQLite stores item/category only.
 - **Degrade, never crash.** No model → 503 with the fix command. No LLM → rule cards.
   No Overpass → cache, then fixtures, then the helpline text.
 
 ## Quickstart (10 minutes, Windows)
 
+The repository already contains a pretrained, real-object model, so **no training step is
+needed** for a working scan:
+
 ```powershell
 py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements-ml.txt -r backend/requirements.txt
+pip install -r backend/requirements.txt
 
-# synthetic data -> train -> evaluate -> export -> calibrate
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+- App: **http://127.0.0.1:8000/app/**
+- API docs: **http://127.0.0.1:8000/docs**
+- Health: **http://127.0.0.1:8000/health** — expect `"classifier": {"ready": true}`
+
+Optional open-vocabulary scanning (identifies objects outside the 1,000 ImageNet classes):
+
+```powershell
+$env:GEMINI_API_KEY="your-free-key"   # aistudio.google.com
+$env:VISION_PROVIDER="auto"
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+### Rebuild or retrain the model
+
+```powershell
+pip install -r requirements-ml.txt
+
+# (a) rebuild the pretrained ImageNet model + mapping report
+python tools/build_imagenet_model.py --out artifacts_pretrained
+
+# (b) or train the small demo model on synthetic rectangles (pipeline test only)
 python tools/make_demo_data.py
 python tools/build_manifest.py --raw-dir data/raw_demo --out data/demo/manifest.csv
 python ml/train.py --manifest data/demo/manifest.csv --epochs 4 --freeze-epochs 1 `
@@ -76,27 +104,17 @@ python ml/evaluate.py --manifest data/demo/manifest.csv `
 python ml/export_onnx.py --ckpt artifacts_demo/model_best.pt --out artifacts_demo
 python ml/calibrate.py --ckpt artifacts_demo/model_best.pt `
   --manifest data/demo/manifest.csv --split val --out artifacts_demo
-
-$env:ONNX_PATH="artifacts_demo/waste_model_int8.onnx"
-$env:LABELS_PATH="artifacts_demo/labels.json"
-uvicorn backend.app.main:app --reload --port 8000
 ```
 
-- App: **http://127.0.0.1:8000/app/**
-- API docs: **http://127.0.0.1:8000/docs**
-- Health: **http://127.0.0.1:8000/health**
-
-> The demo model is trained on coloured rectangles. It proves the pipeline, not the
-> accuracy. Use the real datasets in `docs/02` for a real model — `docs/08` has the steps.
+> The default `artifacts_pretrained/` model is pretrained on 1,000 real ImageNet objects
+> and mapped to the waste taxonomy. The `artifacts_demo/` model is trained on coloured
+> rectangles: it proves the training/export pipeline, not real-world accuracy.
 
 ### Linux / macOS
 
 ```bash
 python3.12 -m venv .venv && source .venv/bin/activate
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements-ml.txt -r backend/requirements.txt
-ONNX_PATH=artifacts_demo/waste_model_int8.onnx \
-LABELS_PATH=artifacts_demo/labels.json \
+pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --port 8000
 ```
 
@@ -105,31 +123,36 @@ uvicorn backend.app.main:app --port 8000
 ```
 .
 ├─ data/label_map.yaml          single source of truth: categories, items, aliases, guidance
+├─ artifacts_pretrained/        shipped ImageNet ONNX model + class→item labels + report
 ├─ tools/
 │  ├─ taxonomy.py               loader + text matching used by ML and API
 │  ├─ build_manifest.py         datasets -> manifest.csv (dedupe, split, report)
+│  ├─ build_imagenet_model.py   export/merge MobileNetV3-Large + write labels
+│  ├─ imagenet_map.py           1,000 ImageNet classes -> 32 waste items
 │  └─ make_demo_data.py         synthetic images for a first run
 ├─ ml/
 │  ├─ train.py                  MobileNetV3-Small transfer learning
 │  ├─ evaluate.py               accuracy, macro-F1, ECE, coverage, per-class report
 │  ├─ export_onnx.py            fp32 -> checker -> int8 -> parity -> labels.json
 │  ├─ calibrate.py              temperature scaling (accuracy-preserving)
-│  └─ predict.py                OnnxClassifier used by the API + CLI
+│  ├─ imagenet_predict.py       ImageNet aggregation + laptop/notebook disambiguation
+│  └─ predict.py                fine-tuned OnnxClassifier (demo path)
 ├─ backend/
 │  ├─ app/main.py               routes, lifespan, CORS, rate limit, /app mount
 │  ├─ app/agent.py              bounded tool loop, memory, post-filter
 │  ├─ app/tools.py              search_rules, get_item_guide, find_facilities, classify_image
 │  ├─ app/knowledge.py          hand-rolled BM25 over backend/knowledge/*.md
+│  ├─ app/vision.py             optional Gemini/Groq open-vocabulary identification
 │  ├─ app/safety.py             hazard constants, PII redaction, refusals
 │  ├─ app/facilities.py         Overpass + fixtures + SQLite cache + OSRM
-│  ├─ app/classifier.py         ONNX + taxonomy enrichment + text-hint fusion
+│  ├─ app/classifier.py         model selection + taxonomy enrichment + text-hint fusion
 │  ├─ app/imaging.py            validate / EXIF-strip / downscale (never saved)
 │  ├─ app/db.py                 scans, feedback, facility cache
 │  ├─ knowledge/*.md            6 rule documents used by RAG
 │  ├─ fixtures/facilities.json  10 clearly-labelled sample points
-│  └─ tests/test_api.py         13 tests, no keys required
+│  └─ tests/                    27 tests, no keys required
 ├─ frontend/                    plain HTML/CSS/JS + Leaflet (no build step)
-├─ docs/                        01..10, written for a student to defend
+├─ docs/                        01..11, written for a student to defend
 ├─ Dockerfile, .github/workflows/ci.yml
 └─ requirements-ml.txt, backend/requirements.txt
 ```
@@ -159,11 +182,13 @@ curl.exe "http://127.0.0.1:8000/facilities?lat=19.11&lng=72.84&category=ewaste"
 
 ```powershell
 cd backend
-..\.venv\Scripts\python.exe -m pytest tests -q      # 13 passed
+..\.venv\Scripts\python.exe -m pytest tests -q      # 27 passed
 ```
 
-The suite passes with **no API key and no model**. With a model exported, the full
-`/classify` path and the image-in-chat path also run.
+The suite passes with **no API key and no model**. With the shipped pretrained model, the
+full `/classify` path and the image-in-chat path also run. New tests cover ImageNet
+probability aggregation, the laptop/notebook guard, vision JSON parsing, and the
+vision→taxonomy conversion.
 
 ```powershell
 # CI runs the same suite on every push (no torch, ~1 min)
@@ -176,7 +201,9 @@ Copy `backend/.env.example` to `backend/.env`. Defaults are demo-safe.
 
 | Variable | Default | Notes |
 |---|---|---|
-| `ONNX_PATH` / `LABELS_PATH` | `artifacts/...` | build with `ml/export_onnx.py` |
+| `ONNX_PATH` / `LABELS_PATH` | `artifacts_pretrained/...` | shipped pretrained model |
+| `VISION_PROVIDER` | `auto` | `auto` / `gemini` / `groq` / `off` |
+| `GEMINI_API_KEY` / `GROQ_API_KEY` | empty | enables open-vocabulary identification |
 | `LLM_PROVIDER` | `fake` | `fake` / `groq` / `gemini` |
 | `FACILITY_PROVIDER` | `fixture` | `fixture` / `overpass` |
 | `CONFIDENCE_THRESHOLD` / `_MARGIN` | `0.60` / `0.15` | uncertain → follow-up question |
@@ -231,8 +258,11 @@ docker run --rm -p 8000:8000 kachra-mitra
 
 ## Honest limitations
 
-- The shipped demo model is a **pipeline test**, not a waste classifier.
-- Closed-set taxonomy: it cannot say "unknown"; a shoe still gets a label.
+- The shipped model is **pretrained ImageNet**, mapped onto the waste taxonomy. It recognises
+  common objects but only 287/1,000 ImageNet classes have a waste item; everything else
+  returns "not sure" instead of a confident answer.
+- For objects outside those classes, set a free Gemini/Groq vision key. Vision is optional
+  and never writes disposal advice.
 - Datasets are studio-lit and under-represent Indian packaging; measure the `wild` split.
 - Disposal **steps** are English; the UI and item names are translated.
 - Facility data is a lead, not a guarantee. OSM coverage is thin outside metros.

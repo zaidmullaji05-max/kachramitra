@@ -17,8 +17,8 @@ class Settings(BaseSettings):
     )
 
     # model
-    onnx_path: str = "artifacts/waste_model_int8.onnx"
-    labels_path: str = "artifacts/labels.json"
+    onnx_path: str = "artifacts_pretrained/mobilenet_v3_large_imagenet.onnx"
+    labels_path: str = "artifacts_pretrained/labels.json"
     classifier_enabled: bool = True
     # below this confidence the API sets uncertain=true and returns a follow-up question
     confidence_threshold: float = 0.60
@@ -33,6 +33,12 @@ class Settings(BaseSettings):
     gemini_api_key: str = ""
     llm_model: str = ""
     llm_timeout_s: float = 20.0
+
+    # Vision identification: auto | gemini | groq | off
+    # "auto" uses Gemini when GEMINI_API_KEY is set, otherwise Groq. No key = off.
+    vision_provider: str = "auto"
+    vision_model: str = ""
+    vision_timeout_s: float = 30.0
 
     # facilities: fixture | overpass
     facility_provider: str = "fixture"

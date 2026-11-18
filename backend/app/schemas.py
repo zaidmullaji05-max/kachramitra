@@ -36,7 +36,7 @@ class ClassifyResponse(BaseModel):
     confidence: float
     top_k: list[TopK] = Field(default_factory=list)
     uncertain: bool = False
-    source: Literal["model", "text_hint"] = "model"
+    source: Literal["model", "text_hint", "vision"] = "model"
     hazards: list[str] = Field(default_factory=list)
     warnings: list[SafetyWarning] = Field(default_factory=list)
     disposal: DisposalInfo

@@ -25,9 +25,12 @@ cd "C:\Users\zaidm\OneDrive\Documents\Default Project"
 py -3.14 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 
-# CPU-only torch first (much smaller than the default CUDA build)
+# to run the app (backend + pretrained ONNX inference)
+pip install -r backend/requirements.txt
+
+# optional: only if you want to retrain or rebuild the ONNX model
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements-ml.txt -r backend/requirements.txt
+pip install -r requirements-ml.txt
 ```
 
 If PowerShell blocks activation:
@@ -38,8 +41,35 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## 3. Ten-minute demo (no datasets, no API keys)
 
-This is the path for a first run or a viva demo. It creates synthetic images, trains a tiny
-model, exports it, calibrates it, and serves the app.
+The repository ships a pretrained, real-object model (`artifacts_pretrained/`), so you can
+start the app immediately — there is no training step:
+
+```powershell
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+Open **http://127.0.0.1:8000/app/**. `/docs` is the interactive API.
+`http://127.0.0.1:8000/health` should show `"classifier": {"ready": true}`.
+
+Optional open-vocabulary scanning (objects outside ImageNet's 1,000 classes):
+
+```powershell
+$env:GEMINI_API_KEY="your-free-key"    # aistudio.google.com
+$env:VISION_PROVIDER="auto"
+uvicorn backend.app.main:app --reload --port 8000
+```
+
+### Rebuild the pretrained model
+
+```powershell
+pip install -r requirements-ml.txt
+python tools/build_imagenet_model.py --out artifacts_pretrained
+```
+
+This downloads torchvision's MobileNetV3-Large ImageNet weights, merges the ONNX weights
+into one file, writes `labels.json`, and regenerates `mapping_report.md`.
+
+### Synthetic pipeline demo (training test only)
 
 ```powershell
 # 1) synthetic images + manifest
@@ -62,10 +92,9 @@ $env:LABELS_PATH="artifacts_demo/labels.json"
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
-Open **http://127.0.0.1:8000/app/**. `/docs` is the interactive API.
-
-> The demo model is trained on coloured rectangles. It proves the pipeline works; it does
-> **not** recognise real waste. Do not show its accuracy as a result.
+> The `artifacts_demo` model is trained on coloured rectangles. It proves the
+> train/export pipeline works; it does **not** recognise real waste. Do not show its
+> accuracy as a result.
 
 ### No model at all
 
@@ -143,17 +172,20 @@ Copy `backend/.env.example` to `backend/.env`. Every value has a working default
 
 | Variable | Default | What it does |
 |---|---|---|
-| `ONNX_PATH` | `artifacts/waste_model_int8.onnx` | model file |
-| `LABELS_PATH` | `artifacts/labels.json` | class metadata + guidance |
+| `ONNX_PATH` | `artifacts_pretrained/mobilenet_v3_large_imagenet.onnx` | shipped pretrained model |
+| `LABELS_PATH` | `artifacts_pretrained/labels.json` | ImageNet class → waste item map |
 | `CLASSIFIER_ENABLED` | `true` | set `false` to force demo mode |
 | `CONFIDENCE_THRESHOLD` | `0.60` | below this → `uncertain` |
 | `CONFIDENCE_MARGIN` | `0.15` | top1−top2 below this → `uncertain` |
 | `DB_PATH` | `backend/data/app.db` | SQLite (scans, feedback, facility cache) |
 | `LLM_PROVIDER` | `fake` | `fake` / `groq` / `gemini` |
-| `GROQ_API_KEY` | empty | free key from console.groq.com |
-| `GEMINI_API_KEY` | empty | free key from aistudio.google.com |
+| `GROQ_API_KEY` | empty | free key from console.groq.com; also enables vision |
+| `GEMINI_API_KEY` | empty | free key from aistudio.google.com; also enables vision |
 | `LLM_MODEL` | provider default | e.g. `llama-3.3-70b-versatile` |
 | `LLM_TIMEOUT_S` | `20` | hard timeout per LLM call |
+| `VISION_PROVIDER` | `auto` | `auto` / `gemini` / `groq` / `off` |
+| `VISION_MODEL` | provider default | `gemini-2.5-flash` or `meta-llama/llama-4-scout-…` |
+| `VISION_TIMEOUT_S` | `30` | hard timeout per vision call |
 | `FACILITY_PROVIDER` | `fixture` | `fixture` / `overpass` |
 | `OVERPASS_URL` | public instance | swap if rate-limited |
 | `OSRM_URL` | public instance | routing |
@@ -189,7 +221,7 @@ Restart uvicorn after changing env vars (Settings is cached).
 |---|---|---|
 | `UnicodeEncodeError: charmap` | Windows console is cp1252 | `$env:PYTHONIOENCODING="utf-8"` |
 | `ModuleNotFoundError: onnxruntime` | backend deps not installed | `pip install -r backend/requirements.txt` |
-| `/classify` 503 | model/labels missing | run `ml/export_onnx.py`, check `ONNX_PATH` |
+| `/classify` 503 | model/labels missing | run `tools/build_imagenet_model.py`, check `ONNX_PATH` |
 | `/app` 404 | folder created after import | restart uvicorn |
 | Frontend cannot reach API | opened as `file://` or CORS | use `/app/`, or set `localStorage.waste.apiBase` |
 | Map pins missing | Overpass timeout / no OSM data | switch to `fixture`, or widen radius |
@@ -202,10 +234,7 @@ Restart uvicorn after changing env vars (Settings is cached).
 ```bash
 python3.12 -m venv .venv
 source .venv/bin/activate
-pip install torch torchvision --index-url https://download.pytorch.org/whl/cpu
-pip install -r requirements-ml.txt -r backend/requirements.txt
-ONNX_PATH=artifacts_demo/waste_model_int8.onnx \
-LABELS_PATH=artifacts_demo/labels.json \
+pip install -r backend/requirements.txt
 uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 

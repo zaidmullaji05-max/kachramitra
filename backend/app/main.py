@@ -11,7 +11,7 @@ from contextlib import asynccontextmanager
 from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 
-from . import db, media, safety
+from . import db, media, safety, vision
 from .agent import STORE as SESSIONS
 from .agent import run as run_agent
 from .classifier import ClassifierService
@@ -104,6 +104,7 @@ async def health(request: Request):
         "status": "ok",
         "version": VERSION,
         "classifier": {"ready": st.classifier.ready, "reason": st.classifier.reason or None},
+        "vision": vision.status(st.settings),
         "llm": getattr(provider, "name", "rules"),
         "facilities_provider": st.settings.facility_provider,
         "confidence_threshold": st.settings.confidence_threshold,
@@ -157,13 +158,29 @@ async def classify(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
 
-    if not st.classifier.ready:
-        raise HTTPException(status_code=503, detail=f"classifier unavailable: {st.classifier.reason}")
+    # Identification: a configured vision model reads the actual object; otherwise the
+    # local ImageNet-pretrained ONNX model. Either way the taxonomy owns the advice.
+    vision_info = None
+    if vision.enabled(st.settings):
+        try:
+            vision_info = await vision.identify(img, lang, st.settings)
+        except vision.VisionError as e:
+            log.warning("vision identification failed, falling back: %s", e)
 
-    try:
-        result = st.classifier.classify(img, lang=lang, text_hint=text_hint)
-    except RuntimeError as e:
-        raise HTTPException(status_code=503, detail=str(e)) from e
+    if vision_info:
+        result = st.classifier.from_vision(vision_info, lang=lang, text_hint=text_hint)
+    elif st.classifier.ready:
+        try:
+            result = st.classifier.classify(img, lang=lang, text_hint=text_hint)
+        except RuntimeError as e:
+            raise HTTPException(status_code=503, detail=str(e)) from e
+    else:
+        detail = f"classifier unavailable: {st.classifier.reason}"
+        if vision.status(st.settings)["enabled"]:
+            detail += "; vision provider also failed (check server logs)"
+        else:
+            detail += "; add GEMINI_API_KEY or GROQ_API_KEY for open-vocabulary scanning"
+        raise HTTPException(status_code=503, detail=detail)
 
     scan_id = f"scn_{uuid.uuid4().hex[:16]}"
     dev = device_id or request.headers.get("x-device-id") or "anonymous"

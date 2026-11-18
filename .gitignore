@@ -13,13 +13,18 @@ data/manifest.csv
 data/demo/
 backend/data/
 
-# Trained artefacts. The two demo inference files are kept so a fresh clone can
-# deploy to Render immediately; checkpoints and real training runs stay local.
+# Trained artefacts. The pretrained ImageNet inference files are kept so a fresh
+# clone can deploy to Render immediately; checkpoints and training runs stay local.
 artifacts_demo/*
 !artifacts_demo/waste_model_int8.onnx
 !artifacts_demo/labels.json
+artifacts_pretrained/*
+!artifacts_pretrained/mobilenet_v3_large_imagenet.onnx
+!artifacts_pretrained/mobilenet_v3_large_int8.onnx
+!artifacts_pretrained/labels.json
+!artifacts_pretrained/mapping_report.md
 artifacts/
-*.onnx
+/*.onnx
 *.pt
 *.tflite
 runs/
@@ -33,3 +38,7 @@ runs/
 Thumbs.db
 .vscode/
 .idea/
+
+# Build / packaging output
+*.zip
+.vercel/

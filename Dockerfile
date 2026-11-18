@@ -32,8 +32,8 @@ RUN mkdir -p /data \
 
 USER app
 
-ENV ONNX_PATH=artifacts/waste_model_int8.onnx \
-    LABELS_PATH=artifacts/labels.json \
+ENV ONNX_PATH=artifacts_pretrained/mobilenet_v3_large_imagenet.onnx \
+    LABELS_PATH=artifacts_pretrained/labels.json \
     DB_PATH=/data/app.db \
     LLM_PROVIDER=fake \
     FACILITY_PROVIDER=fixture

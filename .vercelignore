@@ -8,6 +8,7 @@ backend/
 data/
 artifacts/
 artifacts_demo/
+artifacts_pretrained/
 docs/
 ml/
 tools/

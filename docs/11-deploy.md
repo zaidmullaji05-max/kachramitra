@@ -38,9 +38,15 @@ git push -u origin main
 ```
 
 `.gitignore` already excludes `.venv/`, `__pycache__/`, `data/raw/`, `artifacts/`, and
-`.env`. The two files Render needs — `artifacts_demo/waste_model_int8.onnx` and
-`artifacts_demo/labels.json` — are explicitly whitelisted, so a normal `git add .`
+`.env`. The files Render needs — `artifacts_pretrained/mobilenet_v3_large_imagenet.onnx`,
+`artifacts_pretrained/mobilenet_v3_large_int8.onnx`, and
+`artifacts_pretrained/labels.json` — are explicitly whitelisted, so a normal `git add .`
 is enough. Checkpoints (`*.pt`), the raw datasets, and real training runs stay out of Git.
+
+> The fp32 model is **22 MB** (under GitHub's 25 MB web-upload limit). If your host or
+> repository has a smaller limit, switch `ONNX_PATH` to
+> `artifacts_pretrained/mobilenet_v3_large_int8.onnx` (**5.5 MB**); accuracy is slightly
+> lower but still recognises the same objects.
 
 > If no model is in the repo, the API still boots. `/health` says
 > `classifier.ready: false` and `/classify` returns 503. Chat and the map still work.
@@ -73,12 +79,15 @@ is enough. Checkpoints (`*.pt`), the raw datasets, and real training runs stay o
 Add the environment variables from `render.yaml`. At minimum:
 
 ```
-ONNX_PATH=artifacts_demo/waste_model_int8.onnx
-LABELS_PATH=artifacts_demo/labels.json
+ONNX_PATH=artifacts_pretrained/mobilenet_v3_large_imagenet.onnx
+LABELS_PATH=artifacts_pretrained/labels.json
 LLM_PROVIDER=fake
 FACILITY_PROVIDER=fixture
 DB_PATH=/tmp/kachra-mitra.db
 ALLOW_ORIGINS=*
+# optional open-vocabulary identification
+VISION_PROVIDER=auto
+GEMINI_API_KEY=<your free key>
 ```
 
 Free-tier facts you must plan around:
@@ -87,10 +96,12 @@ Free-tier facts you must plan around:
   30–60 seconds. Say this before a demo, or ping `/health` a minute beforehand.
 - The disk is **ephemeral**. SQLite history survives until the next deploy or restart.
   That is fine for a student demo; for persistence use Render Postgres or Turso.
-- 512 MB RAM is enough for ONNX int8 inference (the model is 1.7 MB). Do not install
-  torch on Render — it is only needed for training.
+- 512 MB RAM is enough for ONNX inference (the fp32 model is 22 MB; the int8 build is
+  5.5 MB). Do not install torch on Render — it is only needed for training.
 - If the build runs out of memory installing `onnxruntime`, make sure you are not
   accidentally installing `requirements-ml.txt`.
+- A vision key is optional. Without it, `/classify` uses the local ONNX model and still
+  works for the 1,000 ImageNet objects; `/health` reports `vision.enabled: false`.
 
 ---
 
@@ -235,9 +246,39 @@ Manual checklist:
 | `/health` 502 / build fails | wrong build command | `pip install -r backend/requirements.txt` only |
 | History disappeared | Render restarted, `/tmp` reset | expected on free; use a managed DB for persistence |
 | `image_storage: false` after setting the URL | `IMAGE_STORAGE` not `true`, or URL malformed | set both, check the `cloudinary://` format |
+| `classifier unavailable: model not found` | the `.onnx` file is not in the GitHub repo | see below |
 | Thumbnails broken but scans work | Cloudinary upload failed | Render logs contain `Cloudinary upload failed`; check credentials |
 | Map shows sample pins | `FACILITY_PROVIDER=fixture` | set `overpass` for live OSM data |
 | Hindi text looks broken in logs | Windows cp1252 console | `$env:PYTHONIOENCODING="utf-8"` (not a deploy issue) |
+
+### `classifier unavailable: model not found`
+
+Open the repo on GitHub → `artifacts_pretrained/`. You must see **all three**:
+`mobilenet_v3_large_imagenet.onnx` (22 MB), `mobilenet_v3_large_int8.onnx` (5.5 MB),
+and `labels.json`. If the `.onnx` is missing, Git ignored it. Fix it once:
+
+```powershell
+git add -f artifacts_pretrained/mobilenet_v3_large_imagenet.onnx
+git add -f artifacts_pretrained/mobilenet_v3_large_int8.onnx
+git add -f artifacts_pretrained/labels.json
+git commit -m "Ship the pretrained ONNX model for Render"
+git push
+```
+
+`git add -f` is required only if your local `.gitignore` still contains `*.onnx`.
+The current `.gitignore` whitelists these files, so a fresh clone can use plain
+`git add .`.
+
+If you uploaded the project through the GitHub website instead, use
+**Add file → Upload files → choose `artifacts_pretrained/mobilenet_v3_large_imagenet.onnx`**,
+then commit. The 22 MB file fits the 25 MB web limit; if it does not, upload
+`mobilenet_v3_large_int8.onnx` instead and set `ONNX_PATH` to that name.
+Render redeploys automatically (`autoDeploy: true`). Confirm with:
+
+```powershell
+curl.exe https://your-service.onrender.com/health
+# "classifier": {"ready": true, "reason": null}
+```
 
 ---
 

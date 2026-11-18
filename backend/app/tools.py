@@ -10,14 +10,18 @@ from __future__ import annotations
 
 import base64
 import binascii
+import logging
 from dataclasses import dataclass
 from typing import Any, Awaitable, Callable
 
+from . import vision
 from .config import Settings
 from .facilities import FacilityService
 from .imaging import decode_upload
 from .knowledge import get_knowledge
 from .taxonomy import get_taxonomy
+
+logger = logging.getLogger("waste.tools")
 
 CATEGORIES = ["ewaste", "recyclable", "general", "organic", "hazardous", "biomedical"]
 
@@ -190,8 +194,6 @@ async def find_facilities(ctx: ToolContext, category: str = "recyclable", lat: f
 
 
 async def classify_image(ctx: ToolContext, image_base64: str = "", hint: str | None = None, **_: Any) -> dict:
-    if not ctx.classifier or not getattr(ctx.classifier, "ready", False):
-        return {"error": "classifier unavailable", "summary": "image model not loaded"}
     if not image_base64:
         return {"error": "empty image", "summary": "no image bytes"}
     raw = image_base64.split(",", 1)[-1]  # tolerate data: URLs
@@ -206,7 +208,20 @@ async def classify_image(ctx: ToolContext, image_base64: str = "", hint: str | N
     except ValueError as e:
         return {"error": str(e), "summary": "image rejected"}
 
-    out = ctx.classifier.classify(img, lang=ctx.lang, text_hint=hint)
+    out = None
+    if ctx.classifier and vision.enabled(ctx.settings):
+        try:
+            v = await vision.identify(img, ctx.lang, ctx.settings)
+            if v:
+                out = ctx.classifier.from_vision(v, lang=ctx.lang, text_hint=hint)
+        except vision.VisionError as e:
+            logger.warning("vision failed in chat: %s", e)
+
+    if out is None:
+        if not ctx.classifier or not getattr(ctx.classifier, "ready", False):
+            return {"error": "classifier unavailable", "summary": "image model not loaded"}
+        out = ctx.classifier.classify(img, lang=ctx.lang, text_hint=hint)
+
     return {
         "item": out["item"],
         "name": out["item_display"],
