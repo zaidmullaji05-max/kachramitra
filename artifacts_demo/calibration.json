@@ -1,0 +1,9 @@
+{
+  "temperature": 0.05,
+  "fitted_on": "val",
+  "n": 34,
+  "ece_before": 0.6551,
+  "ece_after": 0.0158,
+  "coverage_before": 0.0294,
+  "coverage_after": 1.0
+}

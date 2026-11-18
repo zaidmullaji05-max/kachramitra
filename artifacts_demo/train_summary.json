@@ -1,0 +1,14 @@
+{
+  "best_val_f1": 1.0,
+  "best_epoch": 3,
+  "classes": [
+    "cardboard",
+    "glass_container",
+    "metal_scrap",
+    "mixed_trash",
+    "paper",
+    "plastic_bottle"
+  ],
+  "level": "item",
+  "arch": "mobilenet_v3_small"
+}
