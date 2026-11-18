@@ -103,7 +103,12 @@ async def health(request: Request):
     return {
         "status": "ok",
         "version": VERSION,
-        "classifier": {"ready": st.classifier.ready, "reason": st.classifier.reason or None},
+        "classifier": {
+            "ready": st.classifier.ready,
+            "reason": st.classifier.reason or None,
+            "arch": st.classifier.arch or None,
+            "model": st.classifier.settings.onnx_file.name,
+        },
         "vision": vision.status(st.settings),
         "llm": getattr(provider, "name", "rules"),
         "facilities_provider": st.settings.facility_provider,
