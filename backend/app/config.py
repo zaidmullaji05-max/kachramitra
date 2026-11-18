@@ -28,6 +28,13 @@ class Settings(BaseSettings):
     confidence_threshold: float = 0.60
     confidence_margin: float = 0.15
 
+    # Open-vocabulary second opinion (MobileCLIP zero-shot). Covers the waste items the
+    # ImageNet model cannot name at all: battery, charger, bulb, circuit board, syringe.
+    # Set CLIP_ENABLED=false to run the ImageNet model alone.
+    clip_enabled: bool = True
+    clip_model_path: str = "artifacts_clip/mobileclip2_s0_visual_fp16.onnx"
+    clip_embeds_path: str = "artifacts_clip/clip_text_embeds.npz"
+
     # storage
     db_path: str = "backend/data/app.db"
 
@@ -70,6 +77,16 @@ class Settings(BaseSettings):
     @property
     def labels_file(self) -> Path:
         p = Path(self.labels_path)
+        return p if p.is_absolute() else ROOT / p
+
+    @property
+    def clip_model_file(self) -> Path:
+        p = Path(self.clip_model_path)
+        return p if p.is_absolute() else ROOT / p
+
+    @property
+    def clip_embeds_file(self) -> Path:
+        p = Path(self.clip_embeds_path)
         return p if p.is_absolute() else ROOT / p
 
     @property

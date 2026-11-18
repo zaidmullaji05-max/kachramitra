@@ -30,7 +30,7 @@ With the shipped pretrained model, the full classify path also runs:
 
 ```powershell
 ..\.venv\Scripts\python.exe -m pytest tests -q
-# 27 passed
+# 41 passed
 ```
 
 What the tests cover:
@@ -50,6 +50,10 @@ What the tests cover:
 13. ImageNet class→item mapping and probability aggregation
 14. Laptop/notebook disambiguation and unknown-object abstention
 15. Vision JSON parsing, provider resolution, and vision→taxonomy conversion
+16. CLIP prompt builder: every item has ASCII descriptions, no duplicates
+17. CLIP zero-shot: the best-matching item wins, "not waste" photos are rejected
+18. Fusion: a confident CLIP reading corrects ImageNet, agreement raises confidence,
+    and "neither model found waste" abstains instead of guessing
 
 ```powershell
 # API smoke, no browser

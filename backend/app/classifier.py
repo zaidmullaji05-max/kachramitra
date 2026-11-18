@@ -45,6 +45,9 @@ class ClassifierService:
         self.reason = ""
         self.arch = ""
         self.model_name = ""
+        self.clip = None
+        self.clip_name = ""
+        self.clip_reason = ""
 
         onnx_file = settings.onnx_file
         labels_file = settings.labels_file
@@ -90,6 +93,50 @@ class ClassifierService:
 
         if not self.ready:
             log.warning("classifier disabled: %s", self.reason)
+        else:
+            self._load_clip()
+
+    # ------------------------------------------------------------------ clip head
+    def _load_clip(self) -> None:
+        """Load the optional zero-shot head.
+
+        It is a second opinion, not a requirement: a missing or broken artifact only
+        disables it, and `/health` reports why, so a deploy never dies because of it.
+        """
+        if not self.settings.clip_enabled:
+            self.clip_reason = "CLIP_ENABLED=false"
+            return
+        if "imagenet" not in self.arch:
+            self.clip_reason = "only used with the ImageNet model"
+            return
+
+        model_file = self.settings.clip_model_file
+        embeds_file = self.settings.clip_embeds_file
+        if not model_file.exists() or not embeds_file.exists():
+            self.clip_reason = (
+                f"clip artifacts missing: {model_file.name} "
+                "(run tools/build_clip_model.py)"
+            )
+            log.warning("clip head disabled: %s", self.clip_reason)
+            return
+
+        try:
+            from clip_predict import CLIPClassifier
+
+            self.clip = CLIPClassifier(model_file, embeds_file)
+            self.clip_name = model_file.name
+            log.info("clip head ready: %s", model_file.name)
+        except Exception as e:  # noqa: BLE001 - optional component
+            self.clip_reason = f"clip load failed: {e}"
+            log.exception("clip head load failed")
+
+    @property
+    def clip_status(self) -> dict:
+        return {
+            "enabled": self.clip is not None,
+            "model": self.clip_name or None,
+            "reason": None if self.clip is not None else (self.clip_reason or None),
+        }
 
     # ------------------------------------------------------------------ predict
     def classify(self, img: Image.Image, lang: str = "en", text_hint: str | None = None) -> dict:
@@ -108,10 +155,31 @@ class ClassifierService:
             threshold=threshold,
             margin=self.settings.confidence_margin,
         )
-        item = out["item"]
-        confidence = float(out["confidence"])
-        uncertain = bool(out["uncertain"])
-        source = "model"
+
+        # Second opinion: zero-shot CLIP knows the items ImageNet has no class for.
+        # `fuse()` also refuses to answer when neither model found waste at all.
+        clip_out = None
+        if self.clip is not None:
+            try:
+                clip_out = self.clip.predict(img, top_k=3)
+            except Exception:  # noqa: BLE001 - the optional head must not break a scan
+                log.warning("clip prediction failed", exc_info=True)
+
+        if clip_out is not None:
+            from clip_predict import fuse
+
+            merged = fuse(out, clip_out, threshold=min(threshold, 0.45))
+            item = merged["item"]
+            confidence = float(merged["confidence"])
+            uncertain = bool(merged["uncertain"])
+            top_k = merged.get("top_k") or []
+            source = merged.get("source") or "model"
+        else:
+            item = out["item"]
+            confidence = float(out["confidence"])
+            uncertain = bool(out["uncertain"])
+            top_k = out.get("top_k") or []
+            source = "model"
 
         hint_matches = self.taxonomy.match_text(text_hint or "")
         if len(hint_matches) == 1 and (uncertain or item == "mixed_trash"):
@@ -124,7 +192,7 @@ class ClassifierService:
         return self._enrich(
             item=item,
             confidence=confidence,
-            top_k=out.get("top_k") or [],
+            top_k=top_k,
             uncertain=uncertain,
             source=source,
             lang=lang,

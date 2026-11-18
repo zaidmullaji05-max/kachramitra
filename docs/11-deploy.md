@@ -38,15 +38,19 @@ git push -u origin main
 ```
 
 `.gitignore` already excludes `.venv/`, `__pycache__/`, `data/raw/`, `artifacts/`, and
-`.env`. The files Render needs — `artifacts_pretrained/mobilenet_v3_large_imagenet.onnx`,
-`artifacts_pretrained/mobilenet_v3_large_int8.onnx`, and
-`artifacts_pretrained/labels.json` — are explicitly whitelisted, so a normal `git add .`
-is enough. Checkpoints (`*.pt`), the raw datasets, and real training runs stay out of Git.
+`.env`. The files Render needs are explicitly whitelisted, so a normal `git add .` is
+enough:
 
-> The fp32 model is **22 MB** (under GitHub's 25 MB web-upload limit). If your host or
-> repository has a smaller limit, switch `ONNX_PATH` to
-> `artifacts_pretrained/mobilenet_v3_large_int8.onnx` (**5.5 MB**); accuracy is slightly
-> lower but still recognises the same objects.
+- `artifacts_pretrained/mobilenet_v3_large_imagenet.onnx` (22 MB) + `labels.json`
+- `artifacts_clip/mobileclip2_s0_visual_fp16.onnx` (23 MB) +
+  `clip_text_embeds.npz` (2.2 MB) + `clip_meta.json`
+
+Checkpoints (`*.pt`), the raw datasets, and real training runs stay out of Git.
+
+> Both shipped ONNX files are under GitHub's 25 MB web-upload limit (22 MB and 23 MB).
+> If your host or repository has a smaller limit, switch `ONNX_PATH` to
+> `artifacts_pretrained/mobilenet_v3_large_int8.onnx` (**5.5 MB**) and/or set
+> `CLIP_ENABLED=false`; accuracy drops but the app still works.
 
 > If no model is in the repo, the API still boots. `/health` says
 > `classifier.ready: false` and `/classify` returns 503. Chat and the map still work.
@@ -81,6 +85,9 @@ Add the environment variables from `render.yaml`. At minimum:
 ```
 ONNX_PATH=artifacts_pretrained/mobilenet_v3_large_imagenet.onnx
 LABELS_PATH=artifacts_pretrained/labels.json
+CLIP_ENABLED=true
+CLIP_MODEL_PATH=artifacts_clip/mobileclip2_s0_visual_fp16.onnx
+CLIP_EMBEDS_PATH=artifacts_clip/clip_text_embeds.npz
 LLM_PROVIDER=fake
 FACILITY_PROVIDER=fixture
 DB_PATH=/tmp/kachra-mitra.db
@@ -96,12 +103,15 @@ Free-tier facts you must plan around:
   30–60 seconds. Say this before a demo, or ping `/health` a minute beforehand.
 - The disk is **ephemeral**. SQLite history survives until the next deploy or restart.
   That is fine for a student demo; for persistence use Render Postgres or Turso.
-- 512 MB RAM is enough for ONNX inference (the fp32 model is 22 MB; the int8 build is
-  5.5 MB). Do not install torch on Render — it is only needed for training.
+- 512 MB RAM is enough for both local models (22 MB ImageNet + 23 MB fp16 CLIP, batch-1
+  CPU inference). Measured end-to-end on Windows: **227 MB RSS** with both sessions loaded
+  and a scan served, so a free instance has headroom. Do not install torch on Render — it
+  is only needed for training or for rebuilding the models.
 - If the build runs out of memory installing `onnxruntime`, make sure you are not
   accidentally installing `requirements-ml.txt`.
-- A vision key is optional. Without it, `/classify` uses the local ONNX model and still
-  works for the 1,000 ImageNet objects; `/health` reports `vision.enabled: false`.
+- A vision key is optional. Without it, `/classify` uses the two local ONNX models and
+  still covers the 1,000 ImageNet objects plus all 32 taxonomy items; `/health` reports
+  `vision.enabled: false`.
 
 ---
 
@@ -256,6 +266,10 @@ Manual checklist:
 Open the repo on GitHub → `artifacts_pretrained/`. You must see **all three**:
 `mobilenet_v3_large_imagenet.onnx` (22 MB), `mobilenet_v3_large_int8.onnx` (5.5 MB),
 and `labels.json`. If the `.onnx` is missing, Git ignored it. Fix it once:
+
+Then check `artifacts_clip/` for `mobileclip2_s0_visual_fp16.onnx` (23 MB),
+`clip_text_embeds.npz`, and `clip_meta.json`. If they are missing, the API still works
+with ImageNet alone and `/health` reports `"clip": {"enabled": false}`.
 
 ```powershell
 git add -f artifacts_pretrained/mobilenet_v3_large_imagenet.onnx

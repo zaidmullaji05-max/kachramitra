@@ -7,19 +7,22 @@ script. The project is useful *because* it is honest about what it does not know
 
 | You **can** say | You **cannot** say |
 |---|---|
-| "The pipeline serves a pretrained ImageNet ONNX model and maps it to 32 waste items." | "It recognises any waste item with 95% accuracy." |
+| "The pipeline serves a pretrained ImageNet ONNX model plus a zero-shot CLIP head, and maps them to 32 waste items." | "It recognises any waste item with 95% accuracy." |
 | "Macro-F1 on the held-out test split was X." | "It works in every Indian city." |
 | "It explains the SWM 2016 three-stream rule and links the source." | "It gives legal advice." |
 | "It finds nearby collection points from OpenStreetMap." | "Every listed point accepts your item." |
 | "It warns about battery, mercury and sharps hazards." | "It makes disposal safe." |
 | "It runs with zero API keys and zero cloud cost." | "It is production-ready for a municipality." |
 
-The shipped `artifacts_pretrained/` model is **pretrained ImageNet MobileNetV3-Large**,
-not a waste-specific model. It recognises 1,000 everyday objects; 287 of those classes are
-mapped to 27 of our 32 waste items, and everything else returns "not sure". The separate
-`artifacts_demo/` model is trained on synthetic coloured rectangles: its ~0.97 accuracy is
-a **pipeline test**, not a waste-classification result. Never put either number on a poster
-as "waste accuracy".
+The shipped models are **pretrained ImageNet MobileNetV3-Large** and **zero-shot
+MobileCLIP2-S0**, not a waste-specific model trained on Indian waste. ImageNet recognises
+1,000 everyday objects, of which 287 classes are mapped to 27 of our 32 waste items; CLIP
+compares the photo against our own English descriptions and covers all 32, including a
+"not waste" class. Together they are much broader than ImageNet alone, but neither has ever
+been *trained* on labelled waste photos, and no accuracy figure for Indian waste should be
+claimed from them. The separate `artifacts_demo/` model is trained on synthetic coloured
+rectangles: its ~0.97 accuracy is a **pipeline test**, not a waste-classification result.
+Never put either number on a poster as "waste accuracy".
 
 ## 2. Model limitations (the honest list)
 
@@ -28,11 +31,13 @@ as "waste accuracy".
    large drop; measure it on the `wild` split.
 2. **Indian items are under-represented.** Milk pouches, sachets, idli batter packets,
    coconut shells, e-waste chargers, agarbatti boxes, medical blister packs — global
-   datasets barely contain them. Collect them yourself.
-3. **Coverage, not open set.** The ImageNet model knows 1,000 object classes and only 287
-   are mapped to a waste item. A shoe, a toy, or a dead rat stays unmapped and returns
-   "not sure". A vision-LLM key extends this to arbitrary photos; a proper open-set
-   classifier trained on your own `other` class is future work.
+   datasets barely contain them. Collect them yourself. CLIP's prompt list is where you
+   add them cheaply today; retraining is still the long-term fix.
+3. **Coverage, not open set.** ImageNet maps 287 classes to a waste item, and CLIP picks
+   one of 32 descriptions (or "not waste"). An object that resembles none of them still
+   returns "not sure" — e.g. a dead rat, a broken toy, a specific chemical. A vision-LLM
+   key extends this to arbitrary photos; a proper open-set classifier trained on your own
+   `other` class is future work.
 4. **Single-object assumption.** A photo of a full dustbin is not one item. The UI asks for
    one item per photo, but users will ignore that.
 5. **Category ≠ disposal.** "Plastic bottle" is recyclable in one city and refuse-derived

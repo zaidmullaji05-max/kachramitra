@@ -41,17 +41,18 @@ Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
 
 ## 3. Ten-minute demo (no datasets, no API keys)
 
-The repository ships a pretrained, real-object model (`artifacts_pretrained/`), so you can
-start the app immediately — there is no training step:
+The repository ships both models (`artifacts_pretrained/` + `artifacts_clip/`), so you can
+start the app immediately — there is no training step and no `requirements-ml.txt` install:
 
 ```powershell
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
 Open **http://127.0.0.1:8000/app/**. `/docs` is the interactive API.
-`http://127.0.0.1:8000/health` should show `"classifier": {"ready": true}`.
+`http://127.0.0.1:8000/health` should show `"classifier": {"ready": true}` and
+`"clip": {"enabled": true, "model": "mobileclip2_s0_visual_fp16.onnx"}`.
 
-Optional open-vocabulary scanning (objects outside ImageNet's 1,000 classes):
+Optional third tier — a cloud model that can *name* objects neither local model knows:
 
 ```powershell
 $env:GEMINI_API_KEY="your-free-key"    # aistudio.google.com
@@ -59,15 +60,22 @@ $env:VISION_PROVIDER="auto"
 uvicorn backend.app.main:app --reload --port 8000
 ```
 
-### Rebuild the pretrained model
+### Rebuild the pretrained models
 
 ```powershell
 pip install -r requirements-ml.txt
 python tools/build_imagenet_model.py --out artifacts_pretrained
+python tools/build_clip_model.py --check-images path/to/test/photos
 ```
 
-This downloads torchvision's MobileNetV3-Large ImageNet weights, merges the ONNX weights
-into one file, writes `labels.json`, and regenerates `mapping_report.md`.
+`build_imagenet_model.py` downloads torchvision's MobileNetV3-Large ImageNet weights,
+merges the ONNX weights into one file, writes `labels.json`, and regenerates
+`mapping_report.md`.
+
+`build_clip_model.py` downloads MobileCLIP2-S0 (~215 MB, once), encodes the 1,165 prompts
+from `tools/clip_prompts.py`, exports the image tower as fp16 ONNX, and prints a parity
+report. It exits non-zero when the ONNX output drifts from PyTorch, so a bad export cannot
+ship.
 
 ### Synthetic pipeline demo (training test only)
 
@@ -174,6 +182,9 @@ Copy `backend/.env.example` to `backend/.env`. Every value has a working default
 |---|---|---|
 | `ONNX_PATH` | `artifacts_pretrained/mobilenet_v3_large_imagenet.onnx` | shipped pretrained model |
 | `LABELS_PATH` | `artifacts_pretrained/labels.json` | ImageNet class → waste item map |
+| `CLIP_ENABLED` | `true` | zero-shot head; `false` runs ImageNet alone |
+| `CLIP_MODEL_PATH` | `artifacts_clip/mobileclip2_s0_visual_fp16.onnx` | CLIP image tower |
+| `CLIP_EMBEDS_PATH` | `artifacts_clip/clip_text_embeds.npz` | 32-item + negative prompt vectors |
 | `CLASSIFIER_ENABLED` | `true` | set `false` to force demo mode |
 | `ALLOW_DEMO_MODEL` | `false` | keep the synthetic `artifacts_demo` model instead of auto-upgrading to the pretrained one |
 | `CONFIDENCE_THRESHOLD` | `0.60` | below this → `uncertain` |
@@ -223,6 +234,7 @@ Restart uvicorn after changing env vars (Settings is cached).
 | `UnicodeEncodeError: charmap` | Windows console is cp1252 | `$env:PYTHONIOENCODING="utf-8"` |
 | `ModuleNotFoundError: onnxruntime` | backend deps not installed | `pip install -r backend/requirements.txt` |
 | `/classify` 503 | model/labels missing | run `tools/build_imagenet_model.py`, check `ONNX_PATH` |
+| `/health` shows `"clip": {"enabled": false}` | CLIP files missing or broken | run `tools/build_clip_model.py`; `reason` says what failed |
 | `/app` 404 | folder created after import | restart uvicorn |
 | Frontend cannot reach API | opened as `file://` or CORS | use `/app/`, or set `localStorage.waste.apiBase` |
 | Map pins missing | Overpass timeout / no OSM data | switch to `fixture`, or widen radius |

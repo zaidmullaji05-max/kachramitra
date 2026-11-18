@@ -37,7 +37,9 @@ still answers from rule cards and sample map data.
 
 ```
 photo ──► optional vision model (Gemini / Groq)  ──► item + confidence
-      └─► or MobileNetV3-Large (ImageNet, ONNX)  ──► 1,000 objects → 32 waste items
+      └─► MobileNetV3-Large (ImageNet, ONNX)  ──► 1,000 objects → 32 waste items
+      └─► MobileCLIP2-S0 (zero-shot, ONNX)    ──► "is this waste?" + all 32 items
+              └─► fusion: one item + confidence
               └─► taxonomy card: bin, steps, don't, hazard, rule names
                   ├─► Leaflet map: nearest collection points (OSM / fixtures)
                   └─► chat agent: BM25 over the actual rules + 4 tools
@@ -53,9 +55,16 @@ Design decisions worth defending:
   cannot be paraphrased away by a model.
 - **Confidence gate + margin.** `p < 0.60` **or** `top1 − top2 < 0.15` asks "is it A or B?"
   instead of guessing.
-- **Pretrained first, vision optional.** The shipped ONNX model recognises 1,000 real
-  ImageNet objects; 287 of those classes map onto our 32 waste items. Set
-  `GEMINI_API_KEY` or `GROQ_API_KEY` to add open-vocabulary identification.
+- **Pretrained first, vision optional.** Two small ONNX models run offline on the CPU:
+  MobileNetV3-Large names 1,000 real ImageNet objects (287 classes map onto our 32 items),
+  and MobileCLIP2-S0 compares the photo against the *words* of all 32 items, which covers
+  the ones ImageNet has no class for (battery, charger, bulb, circuit board, syringe,
+  chips packet). Set `GEMINI_API_KEY` or `GROQ_API_KEY` to add cloud identification.
+- **Two models, one answer.** ImageNet and CLIP are combined (`0.4 × ImageNet +
+  0.6 × CLIP`), so a confident CLIP reading can correct an ImageNet mistake — ImageNet
+  calls a soda can "pop bottle", CLIP knows it is a metal can.
+- **"Not waste" is a class of its own.** CLIP also scores 20 negative prompts (dog, cat,
+  person, car, room...). If those win, the app says it is not sure instead of guessing a bin.
 - **Unmapped means "not sure".** A dog or a car never becomes a confident disposal answer.
 - **No images stored.** Re-encoded uploads drop EXIF/GPS; SQLite stores item/category only.
 - **Degrade, never crash.** No model → 503 with the fix command. No LLM → rule cards.
@@ -63,8 +72,9 @@ Design decisions worth defending:
 
 ## Quickstart (10 minutes, Windows)
 
-The repository already contains a pretrained, real-object model, so **no training step is
-needed** for a working scan:
+The repository already contains both pretrained models (ImageNet + CLIP), so **no training
+step and no `requirements-ml.txt` install is needed** for a working scan — the API only
+needs `backend/requirements.txt`.
 
 ```powershell
 py -3.14 -m venv .venv
@@ -78,7 +88,8 @@ uvicorn backend.app.main:app --reload --port 8000
 - API docs: **http://127.0.0.1:8000/docs**
 - Health: **http://127.0.0.1:8000/health** — expect `"classifier": {"ready": true}`
 
-Optional open-vocabulary scanning (identifies objects outside the 1,000 ImageNet classes):
+Optional open-vocabulary scanning (a cloud model that can name objects neither local model
+knows):
 
 ```powershell
 $env:GEMINI_API_KEY="your-free-key"   # aistudio.google.com
@@ -93,6 +104,9 @@ pip install -r requirements-ml.txt
 
 # (a) rebuild the pretrained ImageNet model + mapping report
 python tools/build_imagenet_model.py --out artifacts_pretrained
+
+# (a2) rebuild the zero-shot CLIP head (text embeddings + fp16 visual encoder)
+python tools/build_clip_model.py --check-images path/to/some/test/photos
 
 # (b) or train the small demo model on synthetic rectangles (pipeline test only)
 python tools/make_demo_data.py
@@ -150,7 +164,7 @@ uvicorn backend.app.main:app --port 8000
 │  ├─ app/db.py                 scans, feedback, facility cache
 │  ├─ knowledge/*.md            6 rule documents used by RAG
 │  ├─ fixtures/facilities.json  10 clearly-labelled sample points
-│  └─ tests/                    27 tests, no keys required
+│  └─ tests/                    41 tests, no keys required
 ├─ frontend/                    plain HTML/CSS/JS + Leaflet (no build step)
 ├─ docs/                        01..11, written for a student to defend
 ├─ Dockerfile, .github/workflows/ci.yml
@@ -161,7 +175,7 @@ uvicorn backend.app.main:app --port 8000
 
 | Method | Path | Purpose |
 |---|---|---|
-| GET | `/health` | capability flags (model, LLM, map source, knowledge stats) |
+| GET | `/health` | capability flags (both models, CLIP head, LLM, map source) |
 | GET | `/taxonomy` | 6 categories, 32 items, HI/MR names, colours |
 | POST | `/classify` | `file`, `text_hint?`, `barcode?`, `lang`, `device_id?` |
 | POST | `/chat` | `{message, lang, context, image_base64?}` → answer, warnings, facilities, sources, trace |
@@ -182,7 +196,7 @@ curl.exe "http://127.0.0.1:8000/facilities?lat=19.11&lng=72.84&category=ewaste"
 
 ```powershell
 cd backend
-..\.venv\Scripts\python.exe -m pytest tests -q      # 27 passed
+..\.venv\Scripts\python.exe -m pytest tests -q      # 41 passed
 ```
 
 The suite passes with **no API key and no model**. With the shipped pretrained model, the
@@ -256,13 +270,29 @@ docker run --rm -p 8000:8000 kachra-mitra
 | `docs/10-ethics-limitations.md` | claims you can/cannot make, privacy, safety, open problems |
 | `docs/11-deploy.md` | Vercel + Render + Cloudinary, free-tier caveats, troubleshooting |
 
+## What it can recognise
+
+| Tier | Runs on | Can answer | Needs |
+|---|---|---|---|
+| 1 | ImageNet ONNX (22 MB) | items covered by the 1,000 ImageNet classes (bottles, cans, laptops, clothes, food, furniture...) | nothing |
+| 2 | MobileCLIP ONNX (23 MB) | any of the **32 items**, including the ones ImageNet lacks: battery, charger/cable, bulb, circuit board, syringe, chips packet, tetra-pak, aerosol; also rejects "not waste" photos | nothing |
+| 3 | Gemini / Groq vision | arbitrary objects by name, in a sentence | a free API key |
+
+Tiers 1 + 2 are fused into one answer and run fully offline on a 512 MB Render instance.
+Tier 3 is optional and always falls back to tiers 1 + 2 when the key is missing.
+
 ## Honest limitations
 
-- The shipped model is **pretrained ImageNet**, mapped onto the waste taxonomy. It recognises
-  common objects but only 287/1,000 ImageNet classes have a waste item; everything else
-  returns "not sure" instead of a confident answer.
-- For objects outside those classes, set a free Gemini/Groq vision key. Vision is optional
-  and never writes disposal advice.
+- The local models **cannot name every object in the world**. ImageNet covers 1,000 classes
+  and CLIP matches against our 32 descriptions, so a photo of a rare object ends in "not
+  sure" (with a follow-up question) rather than an invented answer. That refusal is a
+  feature: a wrong bin is worse than "please retake or type the item".
+- CLIP is a *screening* model: it decides which of 32 disposal items a photo belongs to, it
+  does not produce a free-text label. Use a vision key (tier 3) when you need the object's
+  name ("this is a Havells 9 W CFL").
+- The two models disagree sometimes. Fusion is weighted (0.4 ImageNet / 0.6 CLIP) and
+  calibrated only by the small set of photos in `ml/clip_predict.py`'s smoke test — measure
+  on your own photos before claiming accuracy.
 - Datasets are studio-lit and under-represent Indian packaging; measure the `wild` split.
 - Disposal **steps** are English; the UI and item names are translated.
 - Facility data is a lead, not a guarantee. OSM coverage is thin outside metros.

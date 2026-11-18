@@ -2,16 +2,17 @@
 
 ## 0. The decision, up front
 
-**Ship a pretrained ImageNet MobileNetV3-Large mapped onto the 32 waste items, with a
-vision-LLM as an optional open-vocabulary fallback. The rest of this document is the
-recipe for training a dataset-specific model once you have real labelled images.**
+**Ship a pretrained ImageNet MobileNetV3-Large mapped onto the 32 waste items, fused with
+a zero-shot MobileCLIP2-S0 head, with a vision-LLM as an optional third tier. The rest of
+this document is the recipe for training a dataset-specific model once you have real
+labelled images.**
 
 ```
-photo → MobileNetV3-Large (ImageNet, 1,000 classes)
-           → aggregate class probabilities per waste item
-           → p(item)
-                ├─ p ≥ threshold and margin ≥ 0.15 → answer + disposal + map
-                └─ else → optional vision-LLM second opinion → one follow-up question
+photo → MobileNetV3-Large (ImageNet, 1,000 classes)  → p_item over 27 mapped items
+      → MobileCLIP2-S0 (zero-shot, 32 items)         → p_item + "not waste" score
+           → fuse: 0.4 × ImageNet + 0.6 × CLIP
+                ├─ waste + confident → answer + disposal + map
+                └─ else → optional vision-LLM → one follow-up question
                           → still unsure → abstain ("can't identify, retake photo")
 ```
 
@@ -36,13 +37,55 @@ pip install -r requirements-ml.txt
 python tools/build_imagenet_model.py --out artifacts_pretrained
 ```
 
+### What also ships (`artifacts_clip/`) — the open-vocabulary head
+
+ImageNet-1k has **no class** for a battery, a phone charger, a light bulb, a circuit
+board, a chips packet or a syringe, even though those are the items where a wrong bin is
+most dangerous. CLIP fixes that by matching the photo against *sentences* instead of a
+fixed list of classes.
+
+| File | Size | Purpose |
+|---|---|---|
+| `mobileclip2_s0_visual_fp16.onnx` | 23 MB | MobileCLIP2-S0 image tower, fp16 |
+| `clip_text_embeds.npz` | 2.2 MB | 1,165 prompt embeddings (32 items + 20 negatives) |
+| `clip_meta.json` | 1 KB | 256px input, mean/std, logit scale |
+
+How it works:
+
+1. `tools/clip_prompts.py` lists ~29 English descriptions per item ("a used AA battery",
+   "a broken light bulb") plus 20 "not waste" descriptions (dog, cat, person, car, room).
+2. `tools/build_clip_model.py` encodes them **once** with the text tower and exports only
+   the image tower. Runtime therefore needs no torch and no download.
+3. `ml/clip_predict.py` embeds the photo, takes the best cosine similarity per item,
+   appends the negative prompts as one extra class, and softmaxes with the model's own
+   logit scale (≈64).
+4. `ml/clip_predict.fuse()` merges both models. If the negative class wins **and**
+   ImageNet has no confident item, the app abstains instead of guessing.
+
+**Why fp16 and not int8:** dynamic int8 quantization of this backbone destroys the
+embedding — cosine similarity against PyTorch measured −0.04 to +0.13, i.e. noise. fp16
+keeps cosine at **0.99998** for half the size of fp32. `build_clip_model.py
+--check-images DIR` fails loudly if ONNX drifts from PyTorch, so a bad export cannot ship.
+
+Measured on the project's test photos (`/health` reports the same models):
+
+| Photo | Before (ImageNet only) | After (ImageNet + CLIP) |
+|---|---|---|
+| laptop | `laptop` 0.71 | `laptop` 0.86 |
+| plastic bottle | `plastic_bottle` 0.67 | `plastic_bottle` 0.75 |
+| soda can | `plastic_bottle` 0.67 ❌ | `metal_can` 0.55 ✅ |
+| banana | `food_waste` 0.95 | `food_waste` 0.997 |
+| t-shirt | `textile` 0.90 | `textile` 0.99 |
+| chips wrapper | `food_wrapper` 0.68 | `food_wrapper` 0.78 |
+| dog (not waste) | `mixed_trash` 0.05 | `mixed_trash` 0.05, refused ✅ |
+
 ### Optional vision fallback
 
 Set `GEMINI_API_KEY` (free tier at aistudio.google.com) or `GROQ_API_KEY` and the API
-will ask a vision model to pick the closest taxonomy id for photos outside ImageNet's
-classes. The vision model never writes disposal advice; `data/label_map.yaml` still owns
-the bin, steps, hazards and rule references. Without a key this path is off and the local
-ONNX model is the only identifier.
+will ask a vision model to name objects that neither local model knows. The vision model
+never writes disposal advice; `data/label_map.yaml` still owns the bin, steps, hazards and
+rule references. Without a key this path is off and the two local ONNX models are the
+identifiers.
 
 Everything else in this document justifies the dataset-specific training plan.
 

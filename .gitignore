@@ -23,6 +23,11 @@ artifacts_pretrained/*
 !artifacts_pretrained/mobilenet_v3_large_int8.onnx
 !artifacts_pretrained/labels.json
 !artifacts_pretrained/mapping_report.md
+# Open-vocabulary CLIP head: only the three runtime files are kept in git.
+artifacts_clip/*
+!artifacts_clip/mobileclip2_s0_visual_fp16.onnx
+!artifacts_clip/clip_text_embeds.npz
+!artifacts_clip/clip_meta.json
 artifacts/
 /*.onnx
 *.pt

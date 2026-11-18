@@ -36,7 +36,7 @@ from .schemas import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("waste.api")
 
-VERSION = "0.1.0"
+VERSION = "0.2.0"
 CATEGORIES = {"ewaste", "recyclable", "general", "organic", "hazardous", "biomedical"}
 LANGS = {"en", "hi", "mr"}
 
@@ -109,6 +109,7 @@ async def health(request: Request):
             "arch": st.classifier.arch or None,
             "model": st.classifier.model_name or st.classifier.settings.onnx_file.name,
         },
+        "clip": st.classifier.clip_status,
         "vision": vision.status(st.settings),
         "llm": getattr(provider, "name", "rules"),
         "facilities_provider": st.settings.facility_provider,

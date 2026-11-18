@@ -19,6 +19,13 @@ services:
         value: artifacts_pretrained/mobilenet_v3_large_imagenet.onnx
       - key: LABELS_PATH
         value: artifacts_pretrained/labels.json
+      # Zero-shot CLIP head: covers items ImageNet has no class for (battery, charger...).
+      - key: CLIP_ENABLED
+        value: "true"
+      - key: CLIP_MODEL_PATH
+        value: artifacts_clip/mobileclip2_s0_visual_fp16.onnx
+      - key: CLIP_EMBEDS_PATH
+        value: artifacts_clip/clip_text_embeds.npz
       - key: LLM_PROVIDER
         value: fake
       - key: FACILITY_PROVIDER

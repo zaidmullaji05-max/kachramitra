@@ -19,7 +19,7 @@ backend/
 │  ├─ hints.py        Open Food Facts barcode lookup (best-effort)
 │  └─ db.py           SQLite: scans, feedback, facility cache
 ├─ fixtures/facilities.json   sample map data (clearly labelled "demo data")
-├─ tests/                    27 tests, no keys required
+├─ tests/                    41 tests, no keys required
 ├─ requirements.txt
 └─ .env.example
 ```
