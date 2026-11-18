@@ -8,7 +8,8 @@ backend/
 │  ├─ main.py         routes, lifespan, CORS, rate limit, static mount
 │  ├─ config.py       Settings (env / backend/.env) — one place for every knob
 │  ├─ schemas.py      the API contract (pydantic v2)
-│  ├─ classifier.py   ONNX wrapper + taxonomy enrichment + text-hint fusion
+│  ├─ classifier.py   model selection + taxonomy enrichment + text-hint fusion
+│  ├─ vision.py       optional Gemini/Groq open-vocabulary identification
 │  ├─ imaging.py      validate / EXIF-strip / downscale uploads (never saved)
 │  ├─ facilities.py   Overpass + fixture providers, SQLite cache, OSRM directions
 │  ├─ llm.py          Groq / Gemini behind one OpenAI-compatible interface
@@ -18,7 +19,7 @@ backend/
 │  ├─ hints.py        Open Food Facts barcode lookup (best-effort)
 │  └─ db.py           SQLite: scans, feedback, facility cache
 ├─ fixtures/facilities.json   sample map data (clearly labelled "demo data")
-├─ tests/test_api.py          10 tests, no keys required
+├─ tests/                    27 tests, no keys required
 ├─ requirements.txt
 └─ .env.example
 ```
@@ -122,8 +123,15 @@ guessing between two similar items and the UI should ask "is it A or B?".
 
 **Text-hint fusion.** The classifier is image-only. If the user typed "old nokia charger"
 and the image was ambiguous **and** the hint matches exactly one item, the hint wins
-(`source: "text_hint"`, confidence floored at 0.55, still flagged uncertain). One rule,
-easy to explain, measurably better on blurry photos.
+(`source: "text_hint"`, confidence floored at 0.72 on the model path / 0.80 on the vision
+path). One rule, easy to explain, measurably better on blurry photos.
+
+**Vision is optional and stays inside the taxonomy.** With `GEMINI_API_KEY` or
+`GROQ_API_KEY` the API asks a vision model to choose one id from the 32-item list. The
+model only returns `{item, confidence, alternatives, reason}`; `classifier.py` then builds
+the same taxonomy card as the ONNX path. Without a key, `/classify` uses the local
+pretrained ImageNet model. A vision failure logs a warning and falls back — it never
+returns 500.
 
 **Facility provider is an interface, not a vendor.** `fixture` for offline demos,
 `overpass` for live OSM, `google` slots in later. Cache is SQLite with a 30-day TTL and a

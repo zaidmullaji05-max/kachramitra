@@ -14,16 +14,18 @@ services:
       # Render's Python build image; keep in sync with docs/08-setup.md
       - key: PYTHON_VERSION
         value: "3.12.6"
-      # The demo model ships in the repo so the API works on the first deploy.
-      # Replace with artifacts/ after training a real model.
+      # Real pretrained classifier, mapped onto the waste taxonomy.
       - key: ONNX_PATH
-        value: artifacts_demo/waste_model_int8.onnx
+        value: artifacts_pretrained/mobilenet_v3_large_imagenet.onnx
       - key: LABELS_PATH
-        value: artifacts_demo/labels.json
+        value: artifacts_pretrained/labels.json
       - key: LLM_PROVIDER
         value: fake
       - key: FACILITY_PROVIDER
         value: fixture
+      # Optional open-vocabulary identification (Gemini or Groq vision).
+      - key: VISION_PROVIDER
+        value: auto
       # Free Render disks are ephemeral: history survives until the next deploy/restart.
       - key: DB_PATH
         value: /tmp/kachra-mitra.db

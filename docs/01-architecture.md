@@ -38,7 +38,7 @@ flowchart LR
   end
 
   subgraph AI["AI services"]
-    M1["Vision classifier<br/>MobileNetV3-Small · ONNX Runtime · CPU"]
+    M1["Vision classifier<br/>MobileNetV3-Large ImageNet · ONNX Runtime · CPU<br/>+ optional vision-LLM"]
     AG["Agent orchestrator<br/>tool-calling loop, max 4 hops"]
     RAG["Retriever<br/>BM25 (+ optional embeddings)"]
     KB[("Knowledge base<br/>SWM 2016 · E-Waste 2022 ·<br/>Plastic 2016 · Battery 2022 · CPCB guides")]
@@ -163,7 +163,7 @@ sequenceDiagram
 |---|---|---|---|
 | **Frontend** | Plain HTML + vanilla JS + Leaflet, served by FastAPI (or GitHub Pages) | React + TypeScript + Vite, Tailwind, PWA, Vercel/Cloudflare Pages | Zero build step = fewer moving parts for a student; same JS can move into React later |
 | **Backend** | FastAPI + Uvicorn, Docker on **Hugging Face Spaces** (free CPU) or Render free | FastAPI on **Cloud Run / ECS Fargate**, Redis cache, RQ/Celery workers, API gateway | HF Spaces free tier: 2 vCPU / 16 GB, Docker, public URL, no card needed |
-| **Model runtime** | ONNX Runtime CPU, `int8` quantised MobileNetV3-Small (~2–6 MB) | ONNX Runtime / Triton on GPU, batch + autoscale, TFLite on device | A 3-class-ish classifier on 224px images is ~10 ms CPU; GPU is wasted money |
+| **Model runtime** | ONNX Runtime CPU, pretrained MobileNetV3-Large (22 MB fp32 / 5.5 MB int8) + optional Gemini/Groq vision | ONNX Runtime / Triton on GPU, batch + autoscale, TFLite on device | Pretrained ImageNet gives real-object recognition with zero training; a 224px image is ~30–80 ms CPU, so GPU is wasted money |
 | **LLM** | **Google Gemini Flash free tier** or **Groq (Llama 3.3 70B) free tier** — both OpenAI-compatible-ish, both support tool calling | Paid GPT-4o-mini / Gemini Pro + provider fallback + prompt caching + LangGraph | Free tiers are generous; Gemini/Groq both handle Hindi & Marathi decently |
 | **Multilingual** | Prompt-level ("answer in the user's language"); optional Bhashini/IndicTrans2 for hard cases | Dedicated translation layer + per-language eval set | Prompting is free and good enough; translation adds latency |
 | **RAG store** | **BM25 (`rank_bm25`) in-process** over ~80 curated rule chunks | `pgvector` + chunked CPCB/MoEFCC corpus, nightly reindex, hybrid search | BM25 needs no embedding model → saves ~400 MB RAM and ~1 s latency on free CPU |

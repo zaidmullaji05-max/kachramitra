@@ -14,5 +14,6 @@ pyyaml>=6.0
 scikit-learn>=1.4       # metrics + confusion matrix
 matplotlib>=3.8         # confusion matrix PNG
 onnx>=1.16              # export + graph checker
+onnxscript>=0.1         # required by torch 2.9+ ONNX exporter
 onnxruntime>=1.18       # CPU inference (also used to verify the export)
 tqdm>=4.66
