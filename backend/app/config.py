@@ -20,6 +20,10 @@ class Settings(BaseSettings):
     onnx_path: str = "artifacts_pretrained/mobilenet_v3_large_imagenet.onnx"
     labels_path: str = "artifacts_pretrained/labels.json"
     classifier_enabled: bool = True
+    # The synthetic `artifacts_demo` model is a pipeline test, not a waste classifier.
+    # By default the API upgrades a stale demo-model path to the shipped pretrained model.
+    # Set ALLOW_DEMO_MODEL=true to keep the synthetic model for a pipeline demo.
+    allow_demo_model: bool = False
     # below this confidence the API sets uncertain=true and returns a follow-up question
     confidence_threshold: float = 0.60
     confidence_margin: float = 0.15

@@ -175,6 +175,7 @@ Copy `backend/.env.example` to `backend/.env`. Every value has a working default
 | `ONNX_PATH` | `artifacts_pretrained/mobilenet_v3_large_imagenet.onnx` | shipped pretrained model |
 | `LABELS_PATH` | `artifacts_pretrained/labels.json` | ImageNet class → waste item map |
 | `CLASSIFIER_ENABLED` | `true` | set `false` to force demo mode |
+| `ALLOW_DEMO_MODEL` | `false` | keep the synthetic `artifacts_demo` model instead of auto-upgrading to the pretrained one |
 | `CONFIDENCE_THRESHOLD` | `0.60` | below this → `uncertain` |
 | `CONFIDENCE_MARGIN` | `0.15` | top1−top2 below this → `uncertain` |
 | `DB_PATH` | `backend/data/app.db` | SQLite (scans, feedback, facility cache) |

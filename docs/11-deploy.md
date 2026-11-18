@@ -273,6 +273,16 @@ If you uploaded the project through the GitHub website instead, use
 **Add file → Upload files → choose `artifacts_pretrained/mobilenet_v3_large_imagenet.onnx`**,
 then commit. The 22 MB file fits the 25 MB web limit; if it does not, upload
 `mobilenet_v3_large_int8.onnx` instead and set `ONNX_PATH` to that name.
+If the service still loads the old synthetic model after a deploy, the dashboard probably
+still has `ONNX_PATH=artifacts_demo/...`. The app now detects that path, logs a warning,
+and uses the shipped pretrained model automatically. To keep the synthetic model instead,
+set `ALLOW_DEMO_MODEL=true`. `/health` shows the loaded file and architecture:
+
+```json
+"classifier": {"ready": true, "arch": "mobilenet_v3_large_imagenet",
+               "model": "mobilenet_v3_large_imagenet.onnx"}
+```
+
 Render redeploys automatically (`autoDeploy: true`). Confirm with:
 
 ```powershell

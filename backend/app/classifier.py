@@ -44,27 +44,46 @@ class ClassifierService:
         self.ready = False
         self.reason = ""
         self.arch = ""
+        self.model_name = ""
+
+        onnx_file = settings.onnx_file
+        labels_file = settings.labels_file
+
+        # Migration safeguard: old Render dashboards often still point ONNX_PATH at the
+        # synthetic `artifacts_demo` model. That model cannot recognise real objects, so
+        # prefer the shipped pretrained model unless the operator explicitly opts in.
+        if "artifacts_demo" in str(onnx_file).replace("\\", "/") and not settings.allow_demo_model:
+            pretrained = ROOT / "artifacts_pretrained" / "mobilenet_v3_large_imagenet.onnx"
+            pretrained_labels = ROOT / "artifacts_pretrained" / "labels.json"
+            if pretrained.exists() and pretrained_labels.exists():
+                log.warning(
+                    "ONNX_PATH points at the synthetic demo model; using the pretrained "
+                    "ImageNet model instead (set ALLOW_DEMO_MODEL=true to override)"
+                )
+                onnx_file, labels_file = pretrained, pretrained_labels
+
+        self.model_name = onnx_file.name
 
         if not settings.classifier_enabled:
             self.reason = "CLASSIFIER_ENABLED=false"
-        elif not settings.onnx_file.exists():
-            self.reason = f"model not found: {settings.onnx_file} (run tools/build_imagenet_model.py)"
-        elif not settings.labels_file.exists():
-            self.reason = f"labels not found: {settings.labels_file}"
+        elif not onnx_file.exists():
+            self.reason = f"model not found: {onnx_file} (run tools/build_imagenet_model.py)"
+        elif not labels_file.exists():
+            self.reason = f"labels not found: {labels_file}"
         else:
             try:
-                meta = json.loads(settings.labels_file.read_text(encoding="utf-8"))
+                meta = json.loads(labels_file.read_text(encoding="utf-8"))
                 self.arch = str(meta.get("arch", ""))
                 if "imagenet" in self.arch:
                     from imagenet_predict import ImageNetClassifier
 
-                    self.model = ImageNetClassifier(settings.onnx_file, settings.labels_file)
+                    self.model = ImageNetClassifier(onnx_file, labels_file)
                 else:
                     from predict import OnnxClassifier
 
-                    self.model = OnnxClassifier(settings.onnx_file, settings.labels_file)
+                    self.model = OnnxClassifier(onnx_file, labels_file)
                 self.ready = True
-                log.info("classifier ready: %s (%s)", settings.onnx_file.name, self.arch or "fine-tuned")
+                log.info("classifier ready: %s (%s)", onnx_file.name, self.arch or "fine-tuned")
             except Exception as e:  # noqa: BLE001 - a broken model must not kill the API
                 self.reason = f"failed to load model: {e}"
                 log.exception("classifier load failed")
