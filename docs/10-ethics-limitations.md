@@ -176,7 +176,7 @@ answer is not worth a burn or a poisoning.
 1. Open-set recognition: a calibrated "none of these" class.
 2. Multi-object scenes: detect and label several items in one photo.
 3. Human-reviewed Hindi/Marathi disposal steps.
-4. Offline mobile app with the 1.7 MB model on-device (TFLite/ONNX Mobile).
+4. Offline mobile app with the 5.5 MB int8 model on-device (TFLite/ONNX Mobile).
 5. Verified, city-specific facility data with opening hours and acceptance rules.
 6. A real CO₂/landfill-diversion model with cited factors.
 7. Screen-reader and low-literacy user testing.

@@ -94,7 +94,8 @@ docker run --rm -p 8000:8000 `
 ```
 
 The image installs **backend requirements only** — no torch, no training data. Inference is
-ONNX Runtime, so the image stays around 300–400 MB. The int8 model is 1.7 MB.
+ONNX Runtime, so the image stays around 350–450 MB. The shipped pretrained model is
+22 MB fp32 (5.5 MB int8).
 
 To ship a real model:
 
