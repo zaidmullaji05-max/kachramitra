@@ -42,6 +42,11 @@ class Settings(BaseSettings):
     db_path: str = "backend/data/app.db"
     database_url: str = ""
 
+    # Neon Managed Better Auth. These must be declared here so Pydantic Settings
+    # reads NEON_AUTH_URL and NEON_AUTH_JWKS_URL from Render's environment.
+    neon_auth_url: str = ""
+    neon_auth_jwks_url: str = ""
+
     # user accounts
     # AUTH_SECRET signs user tokens. If empty, ADMIN_PASSWORD is reused so a single secret
     # can be managed; if both are empty the app falls back to an insecure dev value and
