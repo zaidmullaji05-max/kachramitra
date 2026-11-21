@@ -39,6 +39,9 @@
       "scan.resultLabel": "Scan result",
       "scan.tap": "Tap the shutter to identify",
       "scan.dismiss": "Collapse result",
+      "scan.waking": "Waking the server…",
+      "scan.woke": "The server was asleep — it took {s}s. The next scans are fast.",
+      "scan.compressed": "Photo compressed for upload",
       "chat.title": "Ask Kachra Mitra",
       "chat.new": "New chat",
       "chat.subtitle": "Rules, bins, composting, e-waste, batteries — in your language.",
@@ -148,6 +151,9 @@
       "scan.resultLabel": "स्कैन परिणाम",
       "scan.tap": "पहचानने के लिए शटर दबाएँ",
       "scan.dismiss": "परिणाम छोटा करें",
+      "scan.waking": "सर्वर शुरू हो रहा है…",
+      "scan.woke": "सर्वर सो रहा था — {s} सेकंड लगे। अगली स्कैन तेज़ होंगी।",
+      "scan.compressed": "अपलोड के लिए फ़ोटो छोटी की गई",
       "chat.title": "कचरा मित्र से पूछें",
       "chat.new": "नई चैट",
       "chat.subtitle": "नियम, डिब्बे, खाद, ई-कचरा, बैटरी — आपकी भाषा में।",
@@ -257,6 +263,9 @@
       "scan.resultLabel": "स्कॅन निकाल",
       "scan.tap": "ओळखण्यासाठी शटर दाबा",
       "scan.dismiss": "निकाल लहान करा",
+      "scan.waking": "सर्व्हर सुरू होत आहे…",
+      "scan.woke": "सर्व्हर झोपलेला होता — {s} सेकंद लागले. पुढील स्कॅन वेगवान होतील.",
+      "scan.compressed": "अपलोडसाठी फोटो लहान केला",
       "chat.title": "कचरा मित्राला विचारा",
       "chat.new": "नवीन चॅट",
       "chat.subtitle": "नियम, डबे, खत, ई-कचरा, बॅटरी — तुमच्या भाषेत.",
@@ -355,6 +364,7 @@
   const state = {
     lang: localStorage.getItem("waste.lang") || "en",
     file: null,
+    uploadPromise: null,
     result: null,
     chatFile: null,
     deviceId: getDeviceId(),
@@ -418,6 +428,12 @@
     box.classList.remove("hidden");
     clearTimeout(toast._t);
     toast._t = setTimeout(() => box.classList.add("hidden"), ms);
+  }
+
+  // Free-tier hosts sleep after 15 minutes of inactivity and then need ~50 s to answer
+  // the first request. Poke them now, while the user is still framing the shot.
+  function wakeServer() {
+    fetch(API + "/health", { cache: "no-store" }).catch(() => { /* offline is fine */ });
   }
 
   async function api(path, options = {}, timeoutMs = 30000) {
@@ -489,11 +505,42 @@
   }
 
   // ---------------------------------------------------------------- scan
+  // Phone cameras produce 3-8 MB files. Uploading that over mobile data is the single
+  // biggest source of "the scan is slow", and the model only ever sees 1024 px anyway
+  // (the server downscales). So shrink in the browser first: ~200 KB instead of ~5 MB.
+  async function compressImage(file, maxSide = 1280, quality = 0.85) {
+    const original = { blob: file, name: file.name || "scan.jpg" };
+    try {
+      if (!window.createImageBitmap) return original;
+      const bitmap = await createImageBitmap(file);
+      const longSide = Math.max(bitmap.width, bitmap.height);
+      const scale = Math.min(1, maxSide / longSide);
+      // Already small enough: re-encoding would only lose quality.
+      if (scale >= 0.99 && file.size < 700 * 1024) { bitmap.close?.(); return original; }
+
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale));
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale));
+      const ctx = canvas.getContext("2d");
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      ctx.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close?.();
+
+      const blob = await new Promise((resolve) => canvas.toBlob(resolve, "image/jpeg", quality));
+      if (!blob || blob.size >= file.size) return original;
+      return { blob, name: "scan.jpg" };
+    } catch {
+      return original; // HEIC and friends: let the server have the original bytes
+    }
+  }
+
   function setFile(file) {
     if (!file) return;
     if (!file.type.startsWith("image/")) { toast(t("errImage")); return; }
     if (file.size > 8 * 1024 * 1024) { toast(t("errLarge")); return; }
     state.file = file;
+    state.uploadPromise = compressImage(file);
     const url = URL.createObjectURL(file);
     const img = $("#preview");
     img.src = url;
@@ -509,6 +556,7 @@
 
   function clearPhoto() {
     state.file = null;
+    state.uploadPromise = null;
     $("#preview").removeAttribute("src");
     $("#preview-wrap").classList.add("hidden");
     $("#lens-empty").classList.remove("hidden");
@@ -534,8 +582,13 @@
     stage.classList.add("scanning");
     label.textContent = t("analysing");
 
+    const startedAt = performance.now();
+    // A sleeping free-tier server takes ~50 s to answer. Say so instead of looking frozen.
+    const slowTimer = setTimeout(() => { label.textContent = t("scan.waking"); }, 4000);
+
     const body = new FormData();
-    body.append("file", state.file);
+    const packed = await (state.uploadPromise || compressImage(state.file));
+    body.append("file", packed.blob, packed.name);
     body.append("lang", state.lang);
     body.append("device_id", state.deviceId);
     const hint = $("#text-hint").value.trim();
@@ -544,11 +597,18 @@
     if (barcode) body.append("barcode", barcode);
 
     try {
-      const r = await api("/classify", { method: "POST", body }, 40000);
+      // 90 s, not 40: a cold Render start plus a 3 MB upload legitimately fits in that,
+      // while a genuinely dead server still fails before the user gives up.
+      const r = await api("/classify", { method: "POST", body }, 90000);
       state.result = r;
       state.chatContext = null;
       renderResult(r);
-      if (r.eco_points > 0) toast(t("scanPointsAwarded", { n: r.eco_points }));
+      const secs = Math.round((performance.now() - startedAt) / 1000);
+      if (secs >= 5) {
+        toast(t("scan.woke", { s: secs }), 6000);
+      } else if (r.eco_points > 0) {
+        toast(t("scanPointsAwarded", { n: r.eco_points }));
+      }
       state.historyLoaded = false;
       if (window.innerWidth < 980) {
         setTimeout(() => $("#result").scrollIntoView({ behavior: "smooth", block: "start" }), 140);
@@ -557,6 +617,7 @@
       errBox.textContent = err.message || t("errGeneric");
       errBox.classList.remove("hidden");
     } finally {
+      clearTimeout(slowTimer);
       stage.classList.remove("scanning");
       btn.disabled = !state.file;
       $("#scan-go").disabled = !state.file;
@@ -1150,6 +1211,10 @@
     bind();
     initMap();
     renderGreeting();
+    wakeServer();
+    setInterval(() => {
+      if (document.visibilityState === "visible") wakeServer();
+    }, 10 * 60 * 1000);
     const start = location.hash.replace("#", "");
     showTab(["scan", "chat", "map", "history"].includes(start) ? start : "scan", { updateHash: false });
 
