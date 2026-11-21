@@ -166,6 +166,7 @@ async def signup(req: SignupRequest, request: Request):
         raise
 
     _record(_signups, ip)
+    db.claim_scans(settings, request.headers.get("x-device-id", ""), user["id"])
     return _issue(settings, user)
 
 
@@ -187,6 +188,7 @@ async def login(req: LoginRequest, request: Request):
     _login_failures.pop(key, None)
     db.touch_login(settings, user["id"], db.now_iso())
     user["last_login_at"] = db.now_iso()
+    db.claim_scans(settings, request.headers.get("x-device-id", ""), user["id"])
     return _issue(settings, user)
 
 

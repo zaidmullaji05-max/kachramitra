@@ -79,6 +79,8 @@ small { font-size: .8rem; }
   display: block; color: var(--muted); font-size: .7rem;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 54vw;
 }
+.top-actions { display: flex; align-items: center; gap: .35rem; flex: 0 0 auto; }
+.account-btn { max-width: 8.5rem; overflow: hidden; text-overflow: ellipsis; }
 .langs {
   display: flex; gap: .15rem; padding: .2rem; flex: 0 0 auto;
   background: rgba(255, 255, 255, .9); border: 1px solid var(--line);
@@ -624,11 +626,15 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, .btn:focus-vi
 .map-controls { display: flex; gap: .5rem; margin-top: .85rem; }
 .map-controls select { flex: 0 0 44%; border-radius: 999px; }
 .map-controls .btn { flex: 1 1 auto; }
+.map-actions { margin-top: .65rem; }
 .map {
-  height: 360px; margin: 0 0 .9rem; z-index: 1;
+  height: 420px; margin: 0 0 .9rem; z-index: 1; overflow: hidden;
   border: 1px solid var(--line); border-radius: 26px;
   background: #dfe9e7; box-shadow: var(--shadow-sm);
 }
+.map iframe { width: 100%; height: 100%; border: 0; display: block; }
+.facility-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .45rem; }
+.facility.active { border-color: var(--teal); box-shadow: 0 0 0 2px var(--teal-soft); }
 .map-fallback { display: grid; gap: .5rem; }
 .facility-list { display: grid; gap: .55rem; }
 .facility {
@@ -693,6 +699,25 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, .btn:focus-vi
 .navbtn:hover { color: var(--teal-dark); }
 .navbtn.active { color: var(--teal-dark); background: var(--teal-soft); }
 .navbtn.active span:first-child { filter: none; opacity: 1; transform: translateY(-1px); }
+
+/* ------------------------------------------------------------------ account */
+.auth-backdrop {
+  position: fixed; inset: 0; z-index: 80;
+  display: grid; place-items: center; padding: 1rem;
+  background: rgba(16, 32, 30, .48);
+}
+.auth-card { width: min(420px, 100%); margin: 0; }
+.auth-head { display: flex; align-items: center; justify-content: space-between; gap: .6rem; }
+.auth-head h2 { margin: 0; font-size: 1.2rem; }
+.auth-form { display: grid; gap: .45rem; margin-top: .75rem; }
+.auth-form label { font-size: .78rem; font-weight: 650; color: var(--muted); }
+.auth-form input {
+  width: 100%; padding: .68rem .85rem; border: 1px solid var(--line);
+  border-radius: 14px; font: inherit; background: #fff;
+}
+.auth-form input:focus { outline: 2px solid var(--teal-bright); outline-offset: 1px; }
+#auth-switch { width: 100%; margin-top: .55rem; }
+#auth-admin { display: inline-block; margin-top: .7rem; }
 
 /* ------------------------------------------------------------------ toast */
 .toast {

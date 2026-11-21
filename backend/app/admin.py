@@ -220,6 +220,13 @@ async def remove_user(user_id: str, request: Request):
     return {"ok": True}
 
 
+@router.delete("/scans/{scan_id}", dependencies=[Depends(require_admin)])
+async def remove_scan(scan_id: str, request: Request):
+    if not db.delete_scan(request.app.state.settings, scan_id):
+        raise HTTPException(status_code=404, detail="scan not found")
+    return {"ok": True}
+
+
 @router.get("/export.csv", dependencies=[Depends(require_admin)])
 async def export_csv(request: Request):
     """Download every scan with its correction, ready for a spreadsheet or a re-train set."""

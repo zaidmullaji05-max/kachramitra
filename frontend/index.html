@@ -6,8 +6,6 @@
   <meta name="theme-color" content="#f6f9f8">
   <meta name="description" content="Kachra Mitra — scan a waste item like a lens, get disposal steps, chat about the rules, and find a drop-off point.">
   <title>Kachra Mitra — Smart Waste Assistant</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
-        integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
   <link rel="stylesheet" href="styles.css?v=20261121">
 </head>
 <body>
@@ -19,10 +17,14 @@
         <small data-i18n="app.tagline">Scan it. Sort it. Dispose of it right.</small>
       </div>
     </div>
-    <div class="langs" role="group" aria-label="Language">
-      <button class="lang" data-lang="en" aria-pressed="true">EN</button>
-      <button class="lang" data-lang="hi" aria-pressed="false">हिं</button>
-      <button class="lang" data-lang="mr" aria-pressed="false">मर</button>
+    <div class="top-actions">
+      <a id="admin-jump" class="btn tiny ghost hidden" href="admin.html" data-i18n="auth.admin">Admin</a>
+      <button id="account-btn" class="btn tiny ghost account-btn" type="button" data-i18n="auth.login">Log in</button>
+      <div class="langs" role="group" aria-label="Language">
+        <button class="lang" data-lang="en" aria-pressed="true">EN</button>
+        <button class="lang" data-lang="hi" aria-pressed="false">हिं</button>
+        <button class="lang" data-lang="mr" aria-pressed="false">मर</button>
+      </div>
     </div>
   </header>
 
@@ -140,7 +142,7 @@
     <section id="tab-map" class="tab" aria-labelledby="nav-map">
       <div class="card">
         <h1 data-i18n="map.title">Where to drop it off</h1>
-        <p class="muted" data-i18n="map.subtitle">Collection points near you, by waste category.</p>
+        <p class="muted" data-i18n="map.subtitle">A live Google Map of places near you. Directions open in Google Maps.</p>
         <div class="map-controls">
           <label for="map-category" class="sr-only" data-i18n="map.category">Category</label>
           <select id="map-category">
@@ -153,10 +155,16 @@
           </select>
           <button id="locate-btn" class="btn primary" data-i18n="map.locate">Use my location</button>
         </div>
+        <div class="map-actions">
+          <button id="open-area" class="btn ghost small" type="button" data-i18n="map.openArea">Open this area in Google Maps</button>
+        </div>
         <p id="map-note" class="note hidden"></p>
       </div>
-      <div id="map" class="map" role="application" aria-label="Map of collection points"></div>
-      <div id="map-fallback" class="map-fallback hidden"></div>
+      <div class="map">
+        <iframe id="gmap" title="Google Maps"
+                referrerpolicy="no-referrer-when-downgrade"
+                src="https://maps.google.com/maps?q=19.076,72.8777&z=12&output=embed"></iframe>
+      </div>
       <div id="facility-list" class="facility-list"></div>
     </section>
 
@@ -172,7 +180,7 @@
         </div>
         <div id="cat-breakdown" class="breakdown"></div>
         <button id="history-refresh" class="btn ghost small" data-i18n="history.refresh">Refresh</button>
-        <a class="admin-link" href="admin.html">Admin panel →</a>
+        <p id="account-line" class="muted tiny"></p>
       </div>
       <div id="history-list" class="history-list"></div>
     </section>
@@ -195,8 +203,28 @@
 
   <div id="toast" class="toast hidden" role="status"></div>
 
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
-          integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <div id="auth-dialog" class="auth-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="card auth-card">
+      <div class="auth-head">
+        <h2 id="auth-title" data-i18n="auth.titleIn">Log in</h2>
+        <button type="button" id="auth-close" class="btn tiny ghost" data-i18n="auth.close">Close</button>
+      </div>
+      <p id="auth-blurb" class="muted small" data-i18n="auth.blurb">Sign in to keep your scans. Admins open the dashboard from here.</p>
+      <form id="auth-form" class="auth-form">
+        <label id="auth-name-label" for="auth-name" data-i18n="auth.name">Name</label>
+        <input id="auth-name" type="text" maxlength="80" autocomplete="name">
+        <label for="auth-email" data-i18n="auth.email">Email</label>
+        <input id="auth-email" type="email" autocomplete="username" required>
+        <label for="auth-password" data-i18n="auth.password">Password</label>
+        <input id="auth-password" type="password" autocomplete="current-password" minlength="8" required>
+        <button type="submit" class="btn primary" id="auth-submit" data-i18n="auth.login">Log in</button>
+      </form>
+      <p id="auth-error" class="error hidden" role="alert"></p>
+      <button type="button" id="auth-switch" class="btn ghost small" data-i18n="auth.need">New here? Create an account</button>
+      <a id="auth-admin" class="admin-link hidden" href="admin.html" data-i18n="auth.openAdmin">Open admin dashboard</a>
+    </div>
+  </div>
+
   <script src="config.js?v=20261121"></script>
   <script src="app.js?v=20261121"></script>
 </body>

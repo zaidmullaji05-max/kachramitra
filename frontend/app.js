@@ -57,7 +57,7 @@
       "chat.send": "Send",
       "chat.disclaimer": "General guidance, not legal advice. Verify local rules with your municipal corporation.",
       "map.title": "Where to drop it off",
-      "map.subtitle": "Collection points near you, by waste category.",
+      "map.subtitle": "A live Google Map of places near you. Directions open in Google Maps.",
       "map.category": "Category",
       "map.locate": "Use my location",
       "history.title": "Your impact",
@@ -71,6 +71,26 @@
       "nav.chat": "Chat",
       "nav.map": "Map",
       "nav.history": "Impact",
+      "auth.login": "Log in",
+      "auth.signup": "Create account",
+      "auth.logout": "Log out",
+      "auth.email": "Email",
+      "auth.password": "Password",
+      "auth.name": "Name",
+      "auth.titleIn": "Log in",
+      "auth.titleUp": "Create account",
+      "auth.blurb": "Sign in to keep your scans on your account. An admin account also opens the dashboard.",
+      "auth.need": "New here? Create an account",
+      "auth.have": "Already have an account? Log in",
+      "auth.admin": "Admin",
+      "auth.openAdmin": "Open admin dashboard",
+      "auth.signedIn": "You are signed in.",
+      "auth.guest": "Guest scans stay on this device until you log in.",
+      "auth.accountLine": "Signed in as {name}",
+      "auth.close": "Close",
+      "map.openArea": "Open this area in Google Maps",
+      "map.showRoute": "Show route",
+      "map.openDir": "Open directions",
 
       greeting: "Namaste! Ask me about any waste item, a bin colour, composting, or where to drop something off.",
       analysing: "Looking at your photo…",
@@ -105,7 +125,7 @@
       directions: "Directions",
       sampleData: "Sample data for the demo — set FACILITY_PROVIDER=overpass for live OpenStreetMap results.",
       cached: "Live search failed, so these are cached results.",
-      live: "Live OpenStreetMap data.",
+      live: "Live places near you. The map is Google Maps; directions open there too.",
       noFacilities: "No collection points found nearby. Try a larger radius or check your municipal corporation helpline.",
       locating: "Finding your location…",
       locationDenied: "Location unavailable — showing Mumbai as a demo. Allow location access and try again.",
@@ -169,7 +189,7 @@
       "chat.send": "भेजें",
       "chat.disclaimer": "यह सामान्य मार्गदर्शन है, कानूनी सलाह नहीं। स्थानीय नियम नगर निगम से जाँचें।",
       "map.title": "कहाँ जमा करें",
-      "map.subtitle": "आपके पास की वस्तु-संग्रह जगहें, श्रेणी के अनुसार।",
+      "map.subtitle": "आपके पास का लाइव Google नक्शा। रास्ता Google Maps में खुलता है।",
       "map.category": "श्रेणी",
       "map.locate": "मेरी लोकेशन उपयोग करें",
       "history.title": "आपका योगदान",
@@ -183,6 +203,26 @@
       "nav.chat": "चैट",
       "nav.map": "नक्शा",
       "nav.history": "प्रभाव",
+      "auth.login": "लॉग इन",
+      "auth.signup": "खाता बनाएँ",
+      "auth.logout": "लॉग आउट",
+      "auth.email": "ईमेल",
+      "auth.password": "पासवर्ड",
+      "auth.name": "नाम",
+      "auth.titleIn": "लॉग इन",
+      "auth.titleUp": "खाता बनाएँ",
+      "auth.blurb": "स्कैन अपने खाते में रखने के लिए लॉग इन करें। एडमिन खाता डैशबोर्ड भी खोलता है।",
+      "auth.need": "नए हैं? खाता बनाएँ",
+      "auth.have": "खाता है? लॉग इन करें",
+      "auth.admin": "एडमिन",
+      "auth.openAdmin": "एडमिन डैशबोर्ड खोलें",
+      "auth.signedIn": "आप लॉग इन हैं।",
+      "auth.guest": "लॉग इन से पहले स्कैन इसी डिवाइस पर रहते हैं।",
+      "auth.accountLine": "{name} के रूप में लॉग इन",
+      "auth.close": "बंद करें",
+      "map.openArea": "यह इलाका Google Maps में खोलें",
+      "map.showRoute": "रास्ता दिखाएँ",
+      "map.openDir": "दिशा-निर्देश खोलें",
 
       greeting: "नमस्ते! किसी भी कचरे की वस्तु, डिब्बे का रंग, खाद या जमा करने की जगह के बारे में पूछें।",
       analysing: "आपकी फोटो देख रहे हैं…",
@@ -217,7 +257,7 @@
       directions: "रास्ता",
       sampleData: "डेमो के लिए नमूना डेटा — लाइव OpenStreetMap के लिए FACILITY_PROVIDER=overpass सेट करें।",
       cached: "लाइव खोज नहीं हुई, इसलिए सहेजे गए नतीजे दिख रहे हैं।",
-      live: "लाइव OpenStreetMap डेटा।",
+      live: "आपके पास की लाइव जगहें। नक्शा Google Maps है, रास्ता वहीं खुलता है।",
       noFacilities: "आसपास कोई संग्रह केंद्र नहीं मिला। दायरा बढ़ाएँ या नगर निगम हेल्पलाइन देखें।",
       locating: "आपकी लोकेशन खोज रहे हैं…",
       locationDenied: "लोकेशन उपलब्ध नहीं — डेमो के लिए मुंबई दिखा रहे हैं। लोकेशन की अनुमति दें और फिर कोशिश करें।",
@@ -281,7 +321,7 @@
       "chat.send": "पाठवा",
       "chat.disclaimer": "हे सामान्य मार्गदर्शन आहे, कायदेशीर सल्ला नाही. स्थानिक नियम महानगरपालिकेकडून तपासा.",
       "map.title": "कुठे जमा करावे",
-      "map.subtitle": "तुमच्या जवळील संकलन केंद्रे, श्रेणीनुसार.",
+      "map.subtitle": "तुमच्या जवळचा लाइव्ह Google नकाशा. मार्ग Google Maps मध्ये उघडतो.",
       "map.category": "श्रेणी",
       "map.locate": "माझे स्थान वापरा",
       "history.title": "तुमचे योगदान",
@@ -295,6 +335,26 @@
       "nav.chat": "चॅट",
       "nav.map": "नकाशा",
       "nav.history": "प्रभाव",
+      "auth.login": "लॉग इन",
+      "auth.signup": "खाते तयार करा",
+      "auth.logout": "लॉग आउट",
+      "auth.email": "ईमेल",
+      "auth.password": "पासवर्ड",
+      "auth.name": "नाव",
+      "auth.titleIn": "लॉग इन",
+      "auth.titleUp": "खाते तयार करा",
+      "auth.blurb": "स्कॅन खात्यावर ठेवण्यासाठी लॉग इन करा. ॲडमिन खाते डॅशबोर्डही उघडते.",
+      "auth.need": "नवीन आहात? खाते तयार करा",
+      "auth.have": "खाते आहे? लॉग इन करा",
+      "auth.admin": "ॲडमिन",
+      "auth.openAdmin": "ॲडमिन डॅशबोर्ड उघडा",
+      "auth.signedIn": "तुम्ही लॉग इन आहात.",
+      "auth.guest": "लॉग इन करण्यापूर्वी स्कॅन या डिव्हाइसवर राहतात.",
+      "auth.accountLine": "{name} म्हणून लॉग इन",
+      "auth.close": "बंद करा",
+      "map.openArea": "हा भाग Google Maps मध्ये उघडा",
+      "map.showRoute": "मार्ग दाखवा",
+      "map.openDir": "दिशा उघडा",
 
       greeting: "नमस्कार! कोणत्याही कचऱ्याच्या वस्तू, डब्याचा रंग, खत किंवा जमा करण्याच्या जागेबद्दल विचारा.",
       analysing: "तुमचा फोटो पाहत आहोत…",
@@ -329,7 +389,7 @@
       directions: "मार्ग",
       sampleData: "डेमोसाठी नमुना डेटा — थेट OpenStreetMap साठी FACILITY_PROVIDER=overpass सेट करा.",
       cached: "थेट शोध झाला नाही, म्हणून साठवलेले निकाल दिसत आहेत.",
-      live: "थेट OpenStreetMap डेटा.",
+      live: "तुमच्या जवळची थेट ठिकाणे. नकाशा Google Maps आहे, मार्ग तिथे उघडतो.",
       noFacilities: "जवळ कोणतेही संकलन केंद्र सापडले नाही. परिसर वाढवा किंवा महानगरपालिका हेल्पलाइन पहा.",
       locating: "तुमचे स्थान शोधत आहोत…",
       locationDenied: "स्थान उपलब्ध नाही — डेमोसाठी मुंबई दाखवत आहोत. स्थानाला परवानगी द्या आणि पुन्हा प्रयत्न करा.",
@@ -378,7 +438,10 @@
     historyLoaded: false,
     taxonomy: null,
     messages: [],
-    chatBusy: false
+    chatBusy: false,
+    auth: null,
+    authMode: "in",
+    selectedFacility: null
   };
   if (!STR[state.lang]) state.lang = "en";
 
@@ -439,8 +502,14 @@
   async function api(path, options = {}, timeoutMs = 30000) {
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), timeoutMs);
+    const headers = new Headers(options.headers || {});
+    if (state.deviceId) headers.set("X-Device-Id", state.deviceId);
+    if (state.auth?.token) headers.set("Authorization", "Bearer " + state.auth.token);
     try {
-      const res = await fetch(API + path, { ...options, signal: controller.signal });
+      const res = await fetch(API + path, { ...options, headers, signal: controller.signal });
+      if (res.status === 401 && path.startsWith("/auth/me")) {
+        clearAuth();
+      }
       if (!res.ok) {
         let detail = "";
         try {
@@ -464,6 +533,7 @@
     document.documentElement.lang = state.lang;
     $$("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
     $$("[data-i18n-placeholder]").forEach((el) => { el.placeholder = t(el.dataset.i18nPlaceholder); });
+    renderAccount();
     $$(".lang").forEach((b) => b.setAttribute("aria-pressed", String(b.dataset.lang === state.lang)));
     $("#chat-input").placeholder = t("chat.placeholder");
     if (state.result) renderResult(state.result);
@@ -494,10 +564,7 @@
     });
     if (updateHash) history.replaceState(null, "", "#" + name);
     if (name === "map") {
-      setTimeout(() => {
-        if (state.map) state.map.invalidateSize();
-        if (!state.mapLoaded) locateAndLoad();
-      }, 60);
+      setTimeout(() => { if (!state.mapLoaded) locateAndLoad(); }, 60);
     }
     if (name === "history") loadHistory();
     window.scrollTo(0, 0);
@@ -900,7 +967,7 @@
           <div class="facility" style="margin:.4rem 0">
             <div><h3>${escapeHtml(f.name)}</h3>
               <p>${escapeHtml(f.address || "")}${f.distance_m ? " · " + Math.round(f.distance_m) + " m" : ""}</p>
-              <a href="https://www.google.com/maps/dir/?api=1&destination=${f.lat},${f.lng}" target="_blank" rel="noopener">${escapeHtml(t("directions"))}</a>
+              <a href="${googleDir(f.lat, f.lng)}" target="_blank" rel="noopener">${escapeHtml(t("map.openDir"))}</a>
             </div>
           </div>`).join("");
       }
@@ -947,14 +1014,48 @@
   }
 
   // ---------------------------------------------------------------- map
-  function initMap() {
-    if (state.map || !window.L) return;
-    state.map = L.map("map", { zoomControl: true, attributionControl: true })
-      .setView(DEFAULT_CENTER, 11);
-    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-      maxZoom: 19,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors'
-    }).addTo(state.map);
+  const MAP_QUERY = {
+    ewaste: "e-waste recycling center",
+    recyclable: "recycling center",
+    organic: "compost drop-off",
+    hazardous: "hazardous waste drop-off",
+    biomedical: "biomedical waste collection",
+    general: "waste collection center"
+  };
+
+  function mapQuery() {
+    return MAP_QUERY[$("#map-category")?.value] || "recycling center";
+  }
+
+  function googleDir(lat, lng) {
+    let url = "https://www.google.com/maps/dir/?api=1&destination=" + lat + "," + lng + "&travelmode=driving";
+    if (state.geo) url += "&origin=" + state.geo.lat + "," + state.geo.lng;
+    return url;
+  }
+
+  function googleAreaUrl(lat, lng) {
+    return "https://www.google.com/maps/search/" + encodeURIComponent(mapQuery()) + "/@" + lat + "," + lng + ",14z";
+  }
+
+  function googleEmbedArea(lat, lng) {
+    const q = encodeURIComponent(mapQuery() + " near " + lat + "," + lng);
+    return "https://maps.google.com/maps?q=" + q + "&z=14&output=embed";
+  }
+
+  function googleEmbedRoute(lat, lng) {
+    if (!state.geo) return "https://maps.google.com/maps?q=" + lat + "," + lng + "&z=16&output=embed";
+    return "https://maps.google.com/maps?saddr=" + state.geo.lat + "," + state.geo.lng
+      + "&daddr=" + lat + "," + lng + "&output=embed";
+  }
+
+  function setMapFrame(src) {
+    const frame = $("#gmap");
+    if (frame) frame.src = src;
+  }
+
+  function currentMapPoint() {
+    if (state.geo) return [state.geo.lat, state.geo.lng];
+    return DEFAULT_CENTER;
   }
 
   function mapNote(text, kind = "note") {
@@ -980,15 +1081,16 @@
     mapNote(t("locating"));
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
-        state.geo = { lat: pos.coords.latitude, lng: pos.coords.longitude };
-        if (state.map) state.map.setView([state.geo.lat, state.geo.lng], 14);
+        state.geo = { lat: pos.coords.latitude, lng: pos.coords.longitude, acc: pos.coords.accuracy };
+        setMapFrame(googleEmbedArea(state.geo.lat, state.geo.lng));
         await loadFacilities(state.geo.lat, state.geo.lng);
       },
       async () => {
         mapNote(t("locationDenied"));
+        setMapFrame(googleEmbedArea(DEFAULT_CENTER[0], DEFAULT_CENTER[1]));
         await loadFacilities(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
       },
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 60000 }
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 }
     );
   }
 
@@ -1004,55 +1106,29 @@
       else if (r.stale) mapNote(t("cached"));
       else mapNote(r.note || t("live"), "muted");
 
-      if (state.map) {
-        for (const m of state.markers) state.map.removeLayer(m);
-        state.markers = [];
-        if (state.youMarker) { state.map.removeLayer(state.youMarker); state.youMarker = null; }
-      }
-
-      if (state.geo) {
-        if (state.map) {
-          state.youMarker = L.circleMarker([state.geo.lat, state.geo.lng], {
-            radius: 7, color: "#175cd3", fillColor: "#175cd3", fillOpacity: .9, weight: 2
-          }).addTo(state.map).bindPopup(escapeHtml(t("demoLocation")));
-        }
-      }
+      setMapFrame(googleEmbedArea(lat, lng));
+      state.selectedFacility = null;
 
       if (!r.results?.length) {
         mapNote(t("noFacilities"));
         list.innerHTML = `<div class="card"><p class="muted">${escapeHtml(t("noFacilities"))}</p>
-          <p class="muted small">${escapeHtml(t("helpline"))}</p></div>`;
+          <p class="muted small">${escapeHtml(t("helpline"))}</p>
+          <a class="btn small primary" href="${googleAreaUrl(lat, lng)}" target="_blank" rel="noopener">${escapeHtml(t("map.openArea"))}</a></div>`;
+        state.mapLoaded = true;
         return;
       }
 
-      const bounds = [];
-      r.results.forEach((f) => {
-        bounds.push([f.lat, f.lng]);
-        if (state.map) {
-          const marker = L.marker([f.lat, f.lng]).addTo(state.map);
-          marker.bindPopup(
-            `<strong>${escapeHtml(f.name)}</strong><br>` +
-            `${escapeHtml(f.address || "")}<br>` +
-            `${f.hours ? "🕒 " + escapeHtml(f.hours) + "<br>" : ""}` +
-            `${f.distance_m ? Math.round(f.distance_m) + " m<br>" : ""}` +
-            `<a href="https://www.google.com/maps/dir/?api=1&destination=${f.lat},${f.lng}" target="_blank" rel="noopener">${escapeHtml(t("directions"))}</a>`
-          );
-          state.markers.push(marker);
-        }
-      });
-
-      if (state.map && bounds.length) {
-        if (bounds.length === 1) state.map.setView(bounds[0], 14);
-        else state.map.fitBounds(bounds, { padding: [30, 30], maxZoom: 15 });
-      }
-
-      list.innerHTML = r.results.map((f) => `
-        <div class="facility">
+      state.facilities = r.results;
+      list.innerHTML = r.results.map((f, i) => `
+        <div class="facility" data-idx="${i}">
           <div>
             <h3>${escapeHtml(f.name)}</h3>
             <p>${escapeHtml(f.address || "")}</p>
             ${f.hours ? `<p>🕒 ${escapeHtml(f.hours)}</p>` : ""}
-            <a href="https://www.google.com/maps/dir/?api=1&destination=${f.lat},${f.lng}" target="_blank" rel="noopener">${escapeHtml(t("directions"))} ↗</a>
+            <div class="facility-actions">
+              <button type="button" class="btn tiny ghost" data-act="route">${escapeHtml(t("map.showRoute"))}</button>
+              <a class="btn tiny primary" data-act="dir" href="${googleDir(f.lat, f.lng)}" target="_blank" rel="noopener">${escapeHtml(t("map.openDir"))}</a>
+            </div>
           </div>
           <span class="dist">${f.distance_m != null ? Math.round(f.distance_m) + " m" : ""}</span>
         </div>`).join("");
@@ -1194,9 +1270,25 @@
     });
 
     $("#locate-btn").addEventListener("click", () => { state.mapLoaded = false; locateAndLoad(); });
+    $("#open-area").addEventListener("click", () => {
+      const [lat, lng] = currentMapPoint();
+      window.open(googleAreaUrl(lat, lng), "_blank", "noopener");
+    });
     $("#map-category").addEventListener("change", () => {
-      const c = state.geo ? [state.geo.lat, state.geo.lng] : (state.map ? [state.map.getCenter().lat, state.map.getCenter().lng] : DEFAULT_CENTER);
-      loadFacilities(c[0], c[1]);
+      const [lat, lng] = currentMapPoint();
+      setMapFrame(googleEmbedArea(lat, lng));
+      loadFacilities(lat, lng);
+    });
+    $("#facility-list").addEventListener("click", (e) => {
+      const card = e.target.closest(".facility");
+      if (!card || card.dataset.idx == null) return;
+      const f = (state.facilities || [])[Number(card.dataset.idx)];
+      if (!f) return;
+      $$(".facility").forEach((el) => el.classList.toggle("active", el === card));
+      state.selectedFacility = f;
+      if (e.target.closest("[data-act='dir']")) return;
+      setMapFrame(googleEmbedRoute(f.lat, f.lng));
+      document.querySelector(".map")?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
     $("#history-refresh").addEventListener("click", () => { state.historyLoaded = false; loadHistory(); });
 
@@ -1209,21 +1301,14 @@
   function boot() {
     applyI18n();
     bind();
-    initMap();
     renderGreeting();
+    restoreSession();
     wakeServer();
     setInterval(() => {
       if (document.visibilityState === "visible") wakeServer();
     }, 10 * 60 * 1000);
     const start = location.hash.replace("#", "");
     showTab(["scan", "chat", "map", "history"].includes(start) ? start : "scan", { updateHash: false });
-
-    // The map tab is lazy: it loads on first visit. If Leaflet failed to load, the list still works.
-    if (!window.L) {
-      $("#map").classList.add("hidden");
-      $("#map-fallback").classList.remove("hidden");
-      $("#map-fallback").innerHTML = `<p class="muted small">Map library unavailable offline — the list below still works.</p>`;
-    }
   }
 
   if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);

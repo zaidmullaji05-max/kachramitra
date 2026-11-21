@@ -340,6 +340,26 @@ def scan_summary(target: Target, device_id: str | None,
             "by_category": {r["category"]: int(r["n"]) for r in by_cat}}
 
 
+def delete_scan(target: Target, scan_id: str) -> bool:
+    """Remove one scan and any corrections attached to it."""
+    with connect(target) as con:
+        con.execute("DELETE FROM feedback WHERE scan_id = ?", (scan_id,))
+        cur = con.execute("DELETE FROM scans WHERE id = ?", (scan_id,))
+        return bool(cur.rowcount)
+
+
+def claim_scans(target: Target, device_id: str, user_id: str) -> None:
+    """Attach this browser's guest scans to the account that just signed in."""
+    if not device_id or device_id == "anonymous" or not user_id:
+        return
+    with connect(target) as con:
+        con.execute(
+            """UPDATE scans SET user_id = ?
+               WHERE device_id = ? AND (user_id IS NULL OR user_id = '')""",
+            (user_id, device_id),
+        )
+
+
 def insert_feedback(target: Target, row: dict[str, Any]) -> None:
     with connect(target) as con:
         con.execute(
@@ -578,8 +598,8 @@ def admin_scans(target: Target, limit: int = 50, offset: int = 0,
         ).fetchone()["n"]
         rows = con.execute(
             f"""SELECT s.id, s.device_id, s.user_id, s.item, s.category, s.confidence,
-                       s.uncertain, s.eco_points, s.image_url, s.created_at,
-                       u.email AS user_email
+                       s.uncertain, s.lang, s.eco_points, s.image_url, s.created_at,
+                       u.email AS user_email, u.name AS user_name
                 FROM scans s LEFT JOIN users u ON u.id = s.user_id
                 {clause} ORDER BY s.created_at DESC LIMIT ? OFFSET ?""",
             [*params, limit, offset],
