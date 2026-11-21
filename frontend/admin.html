@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Admin — Kachra Mitra</title>
+  <link rel="stylesheet" href="styles.css?v=20261120">
+  <link rel="stylesheet" href="admin.css?v=20261120">
+</head>
+<body class="admin-body">
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">♻</span>
+      <div class="brand-text">
+        <strong>Kachra Mitra</strong>
+        <small>Admin panel</small>
+      </div>
+    </div>
+    <div class="admin-top-actions">
+      <button id="btn-export" class="btn ghost small hidden">⬇ Export CSV</button>
+      <button id="btn-refresh" class="btn ghost small hidden">↻ Refresh</button>
+      <button id="btn-logout" class="btn ghost small hidden">Log out</button>
+    </div>
+  </header>
+
+  <main class="admin-main">
+    <!-- ============================================================ LOGIN -->
+    <section id="login-view" class="admin-login">
+      <div class="card admin-login-card">
+        <h1>Admin sign in</h1>
+        <p class="muted small">
+          Enter the <code>ADMIN_PASSWORD</code> set on the server. This panel is read-only:
+          it shows scans, corrections and model status — it cannot delete data.
+        </p>
+        <form id="login-form" class="admin-form">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" required
+                 placeholder="ADMIN_PASSWORD">
+          <button type="submit" class="btn primary" id="login-btn">Sign in</button>
+        </form>
+        <p id="login-error" class="error hidden" role="alert"></p>
+        <p id="login-hint" class="muted tiny"></p>
+      </div>
+    </section>
+
+    <!-- ============================================================ DASHBOARD -->
+    <section id="dash-view" class="hidden">
+      <div class="kpis">
+        <div class="kpi"><small>Total scans</small><strong id="kpi-total">–</strong><span id="kpi-trend" class="tiny muted"></span></div>
+        <div class="kpi"><small>Today</small><strong id="kpi-today">–</strong><span id="kpi-yesterday" class="tiny muted"></span></div>
+        <div class="kpi"><small>Uncertain</small><strong id="kpi-uncertain">–</strong><span class="tiny muted" id="kpi-uncertain-rate"></span></div>
+        <div class="kpi"><small>Corrections</small><strong id="kpi-corrections">–</strong><span class="tiny muted" id="kpi-feedback"></span></div>
+        <div class="kpi"><small>Avg confidence</small><strong id="kpi-confidence">–</strong><span class="tiny muted">across all scans</span></div>
+        <div class="kpi"><small>Devices</small><strong id="kpi-devices">–</strong><span class="tiny muted" id="kpi-images"></span></div>
+      </div>
+
+      <div class="admin-grid">
+        <div class="card">
+          <h2>Scans per day</h2>
+          <p class="muted small">Last 14 days (UTC)</p>
+          <div id="trend" class="trend" role="img" aria-label="Daily scan counts"></div>
+          <div id="trend-labels" class="trend-labels"></div>
+        </div>
+        <div class="card">
+          <h2>Category mix</h2>
+          <p class="muted small">Where the scans land</p>
+          <div id="cat-mix" class="cat-mix"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Most-scanned items</h2>
+        <div class="table-wrap">
+          <table class="admin-table">
+            <thead>
+              <tr><th>Item</th><th>Category</th><th class="num">Scans</th><th class="num">Avg conf.</th><th class="num">Uncertain</th></tr>
+            </thead>
+            <tbody id="top-items"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <nav class="admin-tabs" role="tablist">
+        <button class="admin-tab active" data-view="scans" role="tab" aria-selected="true">Scans</button>
+        <button class="admin-tab" data-view="feedback" role="tab" aria-selected="false">Feedback</button>
+        <button class="admin-tab" data-view="model" role="tab" aria-selected="false">Model &amp; status</button>
+      </nav>
+
+      <!-- scans -->
+      <section id="view-scans" class="admin-view">
+        <div class="card">
+          <div class="admin-toolbar">
+            <label class="sr-only" for="filter-category">Category</label>
+            <select id="filter-category">
+              <option value="">All categories</option>
+              <option value="ewaste">E-waste</option>
+              <option value="recyclable">Recyclable</option>
+              <option value="general">General</option>
+              <option value="organic">Organic</option>
+              <option value="hazardous">Hazardous</option>
+              <option value="biomedical">Biomedical</option>
+            </select>
+            <label class="sr-only" for="filter-q">Search</label>
+            <input id="filter-q" type="search" placeholder="Search item or device id…">
+            <span id="scans-count" class="muted small"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr><th>When</th><th>Item</th><th>Category</th><th class="num">Conf.</th><th>Device</th><th>Photo</th></tr>
+              </thead>
+              <tbody id="scans-body"></tbody>
+            </table>
+          </div>
+          <div class="admin-pager">
+            <button id="scans-prev" class="btn tiny ghost">← Newer</button>
+            <span id="scans-page" class="muted small"></span>
+            <button id="scans-next" class="btn tiny ghost">Older →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- feedback -->
+      <section id="view-feedback" class="admin-view hidden">
+        <div class="card">
+          <h2>Corrections from users</h2>
+          <p class="muted small">
+            Every 👎 in the app lands here as predicted → corrected. This is the list to
+            read before changing prompts or adding a taxonomy item.
+          </p>
+          <div class="table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr><th>When</th><th>Predicted</th><th>Corrected to</th><th>Comment</th><th>Scan</th></tr>
+              </thead>
+              <tbody id="feedback-body"></tbody>
+            </table>
+          </div>
+          <div class="admin-pager">
+            <button id="fb-prev" class="btn tiny ghost">← Newer</button>
+            <span id="fb-page" class="muted small"></span>
+            <button id="fb-next" class="btn tiny ghost">Older →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- model -->
+      <section id="view-model" class="admin-view hidden">
+        <div class="card">
+          <h2>What the server is running</h2>
+          <p class="muted small">
+            If scans look wrong, check this first: a missing CLIP head or a disabled vision
+            provider explains most “it guesses badly” reports.
+          </p>
+          <div id="model-cards" class="model-cards"></div>
+        </div>
+        <div class="card">
+          <h2>Quick checks</h2>
+          <ul class="admin-checks">
+            <li><strong>confidence_threshold</strong> — below this the app shows “not sure” and asks a follow-up.</li>
+            <li><strong>clip.enabled=false</strong> — batteries, chargers, bulbs and syringes will be guessed badly.</li>
+            <li><strong>vision.enabled=false</strong> — unknown objects fall back to <code>mixed_trash</code>. Add <code>GEMINI_API_KEY</code> to name anything.</li>
+            <li><strong>image_storage=false</strong> — the Photo column stays empty by design (privacy). Enable Cloudinary to review images.</li>
+          </ul>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <script src="config.js?v=20261120"></script>
+  <script src="admin.js?v=20261120"></script>
+</body>
+</html>

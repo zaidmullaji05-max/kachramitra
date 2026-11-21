@@ -515,6 +515,27 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, .btn:focus-vi
   border: 1px solid #e8eeec; border-radius: 999px; padding: .2rem .55rem;
 }
 
+/* "It was actually X" — one-tap corrections shown when the scan is unsure. */.alt-row {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .4rem;
+  margin: .55rem 0 .2rem;
+}
+.alt-chip {
+  font: inherit; font-size: .8rem; cursor: pointer;
+  color: var(--teal-dark); background: var(--teal-soft);
+  border: 1px solid #cfe9e3; border-radius: 999px;
+  padding: .3rem .7rem;
+  transition: background .15s ease, transform .1s ease;
+}
+.alt-chip:hover { background: #d6efea; }
+.alt-chip:active { transform: scale(.97); }
+
+/* Discreet entry point to the admin panel from the Impact tab. */
+.admin-link {
+  font-size: .78rem; color: var(--muted); margin-left: .6rem;
+  text-decoration: none; border-bottom: 1px dotted currentColor;
+}
+.admin-link:hover { color: var(--teal); }
+
 .result-actions { display: flex; flex-wrap: wrap; gap: .45rem; margin-top: 1rem; }
 .result-actions .btn { flex: 1 1 auto; }
 .result-actions .btn[data-act="map"] { flex-basis: 100%; }

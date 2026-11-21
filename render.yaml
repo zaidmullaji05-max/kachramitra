@@ -51,3 +51,8 @@ services:
       # Render prompts for this on first deploy. Leave blank to keep image storage off.
       - key: CLOUDINARY_URL
         sync: false
+      # Admin panel (/admin). Render prompts for it; leave blank to keep the panel off.
+      - key: ADMIN_PASSWORD
+        sync: false
+      - key: ADMIN_TOKEN_TTL_HOURS
+        value: "12"

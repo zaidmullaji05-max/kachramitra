@@ -87,7 +87,8 @@ class ImageNetClassifier:
             top = [{"id": "mixed_trash", "p": conf}]
             top += [{"id": item, "p": round(score, 4)} for item, score in order[:2]
                     if item != "mixed_trash"]
-            return {"item": "mixed_trash", "confidence": conf, "top_k": top, "uncertain": True}
+            return {"item": "mixed_trash", "confidence": conf, "top_k": top,
+                    "uncertain": True, "probs": agg}
 
         item = order[0][0]
         confidence = float(order[0][1])
@@ -99,5 +100,6 @@ class ImageNetClassifier:
             "item": item,
             "confidence": round(confidence, 4),
             "top_k": top,
+            "probs": agg,  # full mapped distribution; fusion needs more than the top 3
             "uncertain": bool(uncertain),
         }

@@ -12,6 +12,8 @@ from fastapi import Depends, FastAPI, File, Form, HTTPException, Query, Request,
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import db, media, safety, vision
+from . import VERSION
+from .admin import router as admin_router
 from .agent import STORE as SESSIONS
 from .agent import run as run_agent
 from .classifier import ClassifierService
@@ -36,7 +38,6 @@ from .schemas import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
 log = logging.getLogger("waste.api")
 
-VERSION = "0.2.0"
 CATEGORIES = {"ewaste", "recyclable", "general", "organic", "hazardous", "biomedical"}
 LANGS = {"en", "hi", "mr"}
 
@@ -71,6 +72,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(admin_router)
 
 # --------------------------------------------------------------------------- rate limit
 _hits: dict[str, deque[float]] = defaultdict(deque)

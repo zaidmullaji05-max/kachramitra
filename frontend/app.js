@@ -5,7 +5,13 @@
   // ---------------------------------------------------------------- config
   const OVERRIDE = localStorage.getItem("waste.apiBase");
   const DEPLOYED = (window.WASTE_API_BASE || "").trim().replace(/\/$/, "");
-  const API = (OVERRIDE || DEPLOYED || (location.protocol.startsWith("http") ? location.origin : "http://127.0.0.1:8000"))
+  const LOCAL_HOST = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  // When the page is served by the API itself (http://127.0.0.1:8000/app/) talk to that
+  // same server. Otherwise a local dev session would call the hosted Render URL, which
+  // can take ~50 s to wake from sleep — long enough that every scan looks broken.
+  const SERVED_BY_API = LOCAL_HOST && location.pathname.startsWith("/app");
+  const API = (OVERRIDE || (SERVED_BY_API ? location.origin : DEPLOYED)
+    || (location.protocol.startsWith("http") ? location.origin : "http://127.0.0.1:8000"))
     .replace(/\/$/, "");
   const DEFAULT_CENTER = [19.076, 72.8777]; // Mumbai — demo fallback only
 
@@ -574,7 +580,10 @@
     const dont = (r.disposal?.do_not || []).map((s) => `<li>${escapeHtml(s)}</li>`).join("");
     const rules = (r.disposal?.rule_refs || []).map((s) => `<span class="rule-chip">${escapeHtml(s)}</span>`).join("");
     const alternatives = r.uncertain && r.top_k?.length > 1
-      ? `<p class="muted small" style="margin-top:.6rem">${escapeHtml(t("other"))}: ${r.top_k.slice(1).map((x) => escapeHtml(x.name)).join(", ")}</p>`
+      ? `<div class="alt-row"><span class="muted small">${escapeHtml(t("other"))}:</span>` +
+        r.top_k.slice(1).map((x) => `<button type="button" class="alt-chip"
+          data-alt="${escapeHtml(x.item)}" data-alt-name="${escapeHtml(x.name)}">${escapeHtml(x.name)}</button>`).join("") +
+        `</div>`
       : "";
 
     const barcode = r.barcode_hint ? `
@@ -667,6 +676,16 @@
     });
     host.querySelector('[data-act="fb-ok"]').addEventListener("click", () => sendFeedback(r, null));
     host.querySelector('[data-act="fb-wrong"]').addEventListener("click", () => showFeedbackPicker(r));
+
+    // One tap on "it was actually X": log the correction and re-scan with that name as the
+    // hint, so the server answers with X's bin and steps instead of just a guess.
+    host.querySelectorAll("[data-alt]").forEach((btn) => {
+      btn.addEventListener("click", () => {
+        $("#text-hint").value = btn.dataset.altName || btn.dataset.alt;
+        sendFeedback(r, btn.dataset.alt);
+        classify();
+      });
+    });
   }
 
   async function sendFeedback(r, correctItem) {

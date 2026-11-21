@@ -62,6 +62,11 @@ class Settings(BaseSettings):
     rate_limit_per_min: int = 30
     max_upload_mb: int = 8
 
+    # admin panel: leave ADMIN_PASSWORD empty and the whole panel stays switched off.
+    # Set it to a long passphrase on Render, then open /admin and log in with that value.
+    admin_password: str = ""
+    admin_token_ttl_hours: int = 12
+
     # image storage: opt-in, off by default (the app is image-free unless you say otherwise).
     # Set IMAGE_STORAGE=true and CLOUDINARY_URL=cloudinary://key:secret@cloud_name to enable.
     image_storage: bool = False

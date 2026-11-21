@@ -158,6 +158,7 @@ class CLIPClassifier:
             "item": item,
             "confidence": round(float(confidence), 4),
             "top_k": top,
+            "probs": probs,  # full 32-item distribution; fuse() needs more than the top 3
             "uncertain": bool(uncertain),
             "is_waste": bool(is_waste),
             "negative_p": round(negative_p, 4),
@@ -167,18 +168,31 @@ class CLIPClassifier:
 
 
 # ---------------------------------------------------------------------- fusion
-def _dist(top_k: list[dict]) -> dict[str, float]:
-    """Normalise a model's top_k list into a probability-like distribution."""
+def _dist(top_k: list[dict], full: dict | None = None) -> dict[str, float]:
+    """Normalise a model's opinion into a probability distribution.
+
+    `full` (when the model provides it) is preferred: renormalising only the top 3
+    throws away the rest of the mass, which used to cap every fused confidence.
+    """
     d: dict[str, float] = {}
-    for entry in top_k or []:
-        tid = entry.get("id") or entry.get("item")
-        if not tid:
-            continue
-        d[str(tid)] = d.get(str(tid), 0.0) + max(float(entry.get("p") or 0.0), 0.0)
+    if full:
+        for k, v in full.items():
+            if v and float(v) > 0:
+                d[str(k)] = float(v)
+    else:
+        for entry in top_k or []:
+            tid = entry.get("id") or entry.get("item")
+            if not tid:
+                continue
+            d[str(tid)] = d.get(str(tid), 0.0) + max(float(entry.get("p") or 0.0), 0.0)
     total = sum(d.values())
     if total <= 0:
         return {}
     return {k: v / total for k, v in d.items()}
+
+
+def _first(d: dict[str, float]) -> str | None:
+    return max(d, key=d.get) if d else None
 
 
 def fuse(
@@ -190,21 +204,31 @@ def fuse(
 ) -> dict:
     """Merge the ImageNet and CLIP opinions into one `{item, confidence, top_k, uncertain, source}`.
 
+    Ranking is a weighted average of the two distributions (0.4 ImageNet / 0.6 CLIP),
+    because a confident CLIP result should be able to correct a wrong ImageNet label.
+
+    Confidence is *not* that average. Averaging two partly-disagreeing 32-way
+    distributions can never exceed the heavier weight, so a correct, certain answer
+    (CLIP 0.90) was reported as 0.55 — which the UI showed as "we are not really sure".
+    Instead:
+
+    * both models rank the same item first -> trust the more certain of the two;
+    * only one model ranks it first          -> 90% of that model's probability,
+      because the other model disagrees and should cost something;
+    * neither ranks it first                 -> fall back to the blended score.
+
+    `uncertain` still requires a real margin between first and second place.
+
     Three cases:
 
     1. CLIP says "not waste" (a dog, a room, a car) and ImageNet has no confident item
        -> answer `mixed_trash` with low confidence, so the app asks a follow-up question.
     2. ImageNet found nothing usable -> trust CLIP alone.
-    3. Both have an opinion -> weighted average of the two distributions.
-
-    Fusion is preferred over "if A then B" rules because it degrades gracefully: a very
-    confident CLIP result can correct a wrong ImageNet label (ImageNet calls a soda can
-    "pop bottle"; CLIP knows it is a metal can), while a very confident ImageNet result
-    keeps its item when CLIP is unsure.
+    3. Both have an opinion -> fusion, as described above.
     """
     image_top = (imagenet or {}).get("top_k") or []
     image_item = (imagenet or {}).get("item") or NOT_WASTE
-    image_ok = bool(imagenet) and image_item != NOT_WASTE and image_top
+    image_ok = bool(imagenet) and image_item != NOT_WASTE and bool(image_top or (imagenet or {}).get("probs"))
     clip_ok = bool(clip) and bool(clip.get("is_waste"))
 
     if not clip_ok and not image_ok:
@@ -239,8 +263,9 @@ def fuse(
             "source": "clip",
         }
 
-    img_p = _dist(image_top)
-    clip_p = _dist(clip.get("top_k") or [])
+    img_p = _dist(image_top, (imagenet or {}).get("probs"))
+    clip_p = _dist(clip.get("top_k") or [], clip.get("probs"))
+
     fused: dict[str, float] = {}
     for tid in set(img_p) | set(clip_p):
         fused[tid] = W_IMAGENET * img_p.get(tid, 0.0) + W_CLIP * clip_p.get(tid, 0.0)
@@ -248,11 +273,23 @@ def fuse(
     ranked = sorted(fused.items(), key=lambda kv: kv[1], reverse=True)
     best_item, best_p = ranked[0]
     second_p = ranked[1][1] if len(ranked) > 1 else 0.0
-    uncertain = best_p < threshold or (best_p - second_p) < margin
+
+    p_img = img_p.get(best_item, 0.0)
+    p_clip = clip_p.get(best_item, 0.0)
+    support = int(_first(img_p) == best_item) + int(_first(clip_p) == best_item)
+
+    if support == 2:
+        confidence = min(0.99, max(p_img, p_clip) + 0.05 * min(p_img, p_clip))
+    elif support == 1:
+        confidence = 0.90 * max(p_img, p_clip)
+    else:
+        confidence = best_p
+
+    uncertain = confidence < threshold or (best_p - second_p) < margin
 
     return {
         "item": best_item,
-        "confidence": round(float(best_p), 4),
+        "confidence": round(float(confidence), 4),
         "top_k": [{"id": tid, "p": round(p, 4)} for tid, p in ranked[:3]],
         "uncertain": bool(uncertain),
         "source": "model+clip",

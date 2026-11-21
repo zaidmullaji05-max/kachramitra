@@ -125,6 +125,155 @@ def insert_feedback(db_path: Path, row: dict[str, Any]) -> None:
         )
 
 
+# --------------------------------------------------------------------------- admin
+# Everything below is read-only reporting for the admin panel. No new tables: the panel
+# is a lens over the scan log, not a second source of truth.
+
+
+def admin_stats(db_path: Path, days: int = 14) -> dict[str, Any]:
+    """Dashboard numbers: totals, today's activity, category mix, daily trend, top items."""
+    with connect(db_path) as con:
+        total = con.execute("SELECT COUNT(*) FROM scans").fetchone()[0]
+        today = con.execute(
+            "SELECT COUNT(*) FROM scans WHERE created_at >= ?", (_day_start(0),)
+        ).fetchone()[0]
+        yesterday = con.execute(
+            "SELECT COUNT(*) FROM scans WHERE created_at >= ? AND created_at < ?",
+            (_day_start(1), _day_start(0)),
+        ).fetchone()[0]
+        uncertain = con.execute("SELECT COUNT(*) FROM scans WHERE uncertain = 1").fetchone()[0]
+        devices = con.execute("SELECT COUNT(DISTINCT device_id) FROM scans").fetchone()[0]
+        with_images = con.execute("SELECT COUNT(*) FROM scans WHERE image_url IS NOT NULL").fetchone()[0]
+        avg_conf = con.execute("SELECT COALESCE(AVG(confidence), 0) FROM scans").fetchone()[0]
+
+        by_cat = con.execute(
+            "SELECT category, COUNT(*) AS n FROM scans GROUP BY category ORDER BY n DESC"
+        ).fetchall()
+        top_items = con.execute(
+            """SELECT item, category, COUNT(*) AS n, AVG(confidence) AS avg_conf,
+                      SUM(uncertain) AS uncertain
+               FROM scans GROUP BY item ORDER BY n DESC LIMIT 8"""
+        ).fetchall()
+
+        # Daily trend, oldest first, with zero-filled gaps so the chart never lies.
+        rows = con.execute(
+            """SELECT substr(created_at, 1, 10) AS day, COUNT(*) AS n
+               FROM scans WHERE created_at >= ? GROUP BY day""",
+            (_day_start(days - 1),),
+        ).fetchall()
+        counts = {r["day"]: r["n"] for r in rows}
+        trend = []
+        for i in range(days - 1, -1, -1):
+            day = _day_start(i)[:10]
+            trend.append({"day": day, "n": counts.get(day, 0)})
+
+        fb_total = con.execute("SELECT COUNT(*) FROM feedback").fetchone()[0]
+        fb_fixes = con.execute(
+            "SELECT COUNT(*) FROM feedback f JOIN scans s ON s.id = f.scan_id "
+            "WHERE f.correct_item IS NOT NULL AND f.correct_item <> s.item"
+        ).fetchone()[0]
+        fb_recent = con.execute(
+            """SELECT f.created_at, f.correct_item, f.correct_category, f.comment,
+                      s.item AS predicted_item, s.category AS predicted_category
+               FROM feedback f LEFT JOIN scans s ON s.id = f.scan_id
+               ORDER BY f.created_at DESC LIMIT 5"""
+        ).fetchall()
+
+    return {
+        "total_scans": total,
+        "today": today,
+        "yesterday": yesterday,
+        "uncertain": uncertain,
+        "uncertain_rate": round(uncertain / total, 4) if total else 0.0,
+        "avg_confidence": round(float(avg_conf), 4),
+        "devices": devices,
+        "with_images": with_images,
+        "by_category": [{"category": r["category"], "count": r["n"]} for r in by_cat],
+        "top_items": [
+            {
+                "item": r["item"],
+                "category": r["category"],
+                "count": r["n"],
+                "avg_confidence": round(float(r["avg_conf"] or 0), 4),
+                "uncertain": r["uncertain"],
+            }
+            for r in top_items
+        ],
+        "trend": trend,
+        "feedback": {
+            "total": fb_total,
+            "corrections": fb_fixes,
+            "recent": [dict(r) for r in fb_recent],
+        },
+    }
+
+
+def admin_scans(db_path: Path, limit: int = 50, offset: int = 0,
+                category: str | None = None, query: str | None = None) -> dict[str, Any]:
+    where: list[str] = []
+    params: list[Any] = []
+    if category:
+        where.append("category = ?")
+        params.append(category)
+    if query:
+        where.append("(item LIKE ? OR device_id LIKE ?)")
+        params += [f"%{query}%", f"%{query}%"]
+    clause = ("WHERE " + " AND ".join(where)) if where else ""
+
+    with connect(db_path) as con:
+        total = con.execute(f"SELECT COUNT(*) FROM scans {clause}", params).fetchone()[0]
+        rows = con.execute(
+            f"""SELECT id, device_id, item, category, confidence, uncertain, eco_points,
+                       image_url, created_at
+                FROM scans {clause} ORDER BY created_at DESC LIMIT ? OFFSET ?""",
+            [*params, limit, offset],
+        ).fetchall()
+    return {"total": total, "limit": limit, "offset": offset, "scans": [dict(r) for r in rows]}
+
+
+def admin_feedback(db_path: Path, limit: int = 100, offset: int = 0) -> dict[str, Any]:
+    with connect(db_path) as con:
+        total = con.execute("SELECT COUNT(*) FROM feedback").fetchone()[0]
+        rows = con.execute(
+            """SELECT f.id, f.created_at, f.scan_id, f.correct_item, f.correct_category,
+                      f.comment, s.item AS predicted_item, s.category AS predicted_category,
+                      s.confidence, s.uncertain
+               FROM feedback f LEFT JOIN scans s ON s.id = f.scan_id
+               ORDER BY f.created_at DESC LIMIT ? OFFSET ?""",
+            (limit, offset),
+        ).fetchall()
+    out = []
+    for r in rows:
+        row = dict(r)
+        row["agrees"] = bool(
+            row["predicted_item"] and row["correct_item"] == row["predicted_item"]
+        )
+        out.append(row)
+    return {"total": total, "limit": limit, "offset": offset, "feedback": out}
+
+
+def admin_csv_rows(db_path: Path, limit: int = 5000) -> list[dict[str, Any]]:
+    """Flat rows for the CSV export: prediction plus the correction, when there is one."""
+    with connect(db_path) as con:
+        rows = con.execute(
+            """SELECT s.created_at, s.id AS scan_id, s.item, s.category, s.confidence,
+                      s.uncertain, s.device_id,
+                      f.correct_item, f.correct_category, f.comment
+               FROM scans s LEFT JOIN feedback f ON f.scan_id = s.id
+               ORDER BY s.created_at DESC LIMIT ?""",
+            (limit,),
+        ).fetchall()
+    return [dict(r) for r in rows]
+
+
+def _day_start(days_ago: int = 0) -> str:
+    """UTC midnight `days_ago` days back, as an ISO string comparable to created_at."""
+    from datetime import timedelta
+
+    d = datetime.now(timezone.utc) - timedelta(days=days_ago)
+    return d.replace(hour=0, minute=0, second=0, microsecond=0).isoformat(timespec="seconds")
+
+
 def cache_facilities(db_path: Path, facilities: list[dict[str, Any]], fetched_at: str) -> None:
     with connect(db_path) as con:
         con.executemany(

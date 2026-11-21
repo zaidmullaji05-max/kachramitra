@@ -4,16 +4,16 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#f6f9f8">
-  <meta name="description" content="Kachra Mitra — scan a waste item like a lens, get disposal steps, chat about the rules, and find a drop-off point.">
-  <title>Kachra Mitra — Smart Waste Assistant</title>
+  <meta name="description" content="Kachra Mitra â€” scan a waste item like a lens, get disposal steps, chat about the rules, and find a drop-off point.">
+  <title>Kachra Mitra â€” Smart Waste Assistant</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
         integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-  <link rel="stylesheet" href="styles.css?v=20261117">
+  <link rel="stylesheet" href="styles.css?v=20261120">
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="logo" aria-hidden="true">♻</span>
+      <span class="logo" aria-hidden="true">â™»</span>
       <div class="brand-text">
         <strong data-i18n="app.name">Kachra Mitra</strong>
         <small data-i18n="app.tagline">Scan it. Sort it. Dispose of it right.</small>
@@ -21,8 +21,8 @@
     </div>
     <div class="langs" role="group" aria-label="Language">
       <button class="lang" data-lang="en" aria-pressed="true">EN</button>
-      <button class="lang" data-lang="hi" aria-pressed="false">हिं</button>
-      <button class="lang" data-lang="mr" aria-pressed="false">मर</button>
+      <button class="lang" data-lang="hi" aria-pressed="false">à¤¹à¤¿à¤‚</button>
+      <button class="lang" data-lang="mr" aria-pressed="false">à¤®à¤°</button>
     </div>
   </header>
 
@@ -33,9 +33,9 @@
 
       <div class="lens-stage" id="lens-stage">
         <div class="lens-empty" id="lens-empty">
-          <div class="lens-orb" aria-hidden="true"><span>♻</span></div>
+          <div class="lens-orb" aria-hidden="true"><span>â™»</span></div>
           <p class="lens-empty-title" data-i18n="scan.point">Point at a waste item</p>
-          <p class="lens-empty-sub" data-i18n="scan.center">Keep one item inside the frame — good light, clean background.</p>
+          <p class="lens-empty-sub" data-i18n="scan.center">Keep one item inside the frame â€” good light, clean background.</p>
         </div>
 
         <div id="preview-wrap" class="preview-wrap hidden">
@@ -47,18 +47,18 @@
 
         <div class="lens-badge"><span class="dot" aria-hidden="true"></span><span data-i18n="scan.ai">AI scan</span></div>
 
-        <button id="clear-photo" class="lens-clear hidden" aria-label="Remove photo" title="Remove">✕</button>
+        <button id="clear-photo" class="lens-clear hidden" aria-label="Remove photo" title="Remove">âœ•</button>
 
         <div class="lens-status" aria-hidden="true">
           <span class="lens-dots"><i></i><i></i><i></i></span>
-          <span data-i18n="scan.scanning">Scanning…</span>
+          <span data-i18n="scan.scanning">Scanningâ€¦</span>
         </div>
 
         <p class="lens-hint" data-i18n="scan.tap">Tap the shutter to identify</p>
 
         <div class="lens-controls">
           <label class="lens-side" for="upload" title="Upload from gallery">
-            <span class="lens-side-icon" aria-hidden="true">🖼️</span>
+            <span class="lens-side-icon" aria-hidden="true">ðŸ–¼ï¸</span>
             <span data-i18n="scan.gallery">Gallery</span>
           </label>
           <input id="upload" type="file" accept="image/*" hidden>
@@ -70,7 +70,7 @@
           </button>
 
           <label class="lens-side" for="camera" title="Take a photo">
-            <span class="lens-side-icon" aria-hidden="true">📷</span>
+            <span class="lens-side-icon" aria-hidden="true">ðŸ“·</span>
             <span data-i18n="scan.cameraShort">Camera</span>
           </label>
           <input id="camera" type="file" accept="image/*" capture="environment" hidden>
@@ -80,16 +80,16 @@
       <div class="scan-side">
         <div class="scan-bar">
           <div class="scan-input">
-            <span class="scan-spark" aria-hidden="true">✦</span>
+            <span class="scan-spark" aria-hidden="true">âœ¦</span>
             <label for="text-hint" class="sr-only" data-i18n="scan.hintLabel">Description</label>
             <input id="text-hint" type="text" maxlength="120" data-i18n-placeholder="scan.hintPlaceholder"
                    placeholder="Describe the item (optional)">
             <button type="button" id="scan-go" class="scan-go" aria-label="Scan item" disabled>
-              <span aria-hidden="true">→</span>
+              <span aria-hidden="true">â†’</span>
             </button>
           </div>
           <button type="button" id="extra-toggle" class="scan-more" aria-expanded="false" aria-controls="scan-extra">
-            <span aria-hidden="true">＋</span> <span data-i18n="scan.more">Barcode</span>
+            <span aria-hidden="true">ï¼‹</span> <span data-i18n="scan.more">Barcode</span>
           </button>
           <div id="scan-extra" class="scan-extra hidden">
             <label for="barcode" data-i18n="scan.barcodePlaceholder">Barcode (optional)</label>
@@ -110,7 +110,7 @@
         <div class="chat-head">
           <div>
             <h1 data-i18n="chat.title">Ask Kachra Mitra</h1>
-            <p class="muted small" data-i18n="chat.subtitle">Rules, bins, composting, e-waste, batteries — in your language.</p>
+            <p class="muted small" data-i18n="chat.subtitle">Rules, bins, composting, e-waste, batteries â€” in your language.</p>
           </div>
           <button id="chat-new" class="btn tiny ghost" data-i18n="chat.new">New chat</button>
         </div>
@@ -118,18 +118,18 @@
         <div id="messages" class="messages" aria-live="polite"></div>
 
         <div id="chips" class="chips">
-          <button class="chip">💡 <span data-i18n="chat.chip1">Broken tube light</span></button>
-          <button class="chip">🌱 <span data-i18n="chat.chip2">Composting in a flat</span></button>
-          <button class="chip">🍟 <span data-i18n="chat.chip3">Chips packet</span></button>
-          <button class="chip">🔋 <span data-i18n="chat.chip4">Swollen battery</span></button>
+          <button class="chip">ðŸ’¡ <span data-i18n="chat.chip1">Broken tube light</span></button>
+          <button class="chip">ðŸŒ± <span data-i18n="chat.chip2">Composting in a flat</span></button>
+          <button class="chip">ðŸŸ <span data-i18n="chat.chip3">Chips packet</span></button>
+          <button class="chip">ðŸ”‹ <span data-i18n="chat.chip4">Swollen battery</span></button>
         </div>
 
         <form id="chat-form" class="chat-form">
-          <label class="icon-btn" for="chat-photo" title="Attach a photo" aria-label="Attach a photo">📎</label>
+          <label class="icon-btn" for="chat-photo" title="Attach a photo" aria-label="Attach a photo">ðŸ“Ž</label>
           <input id="chat-photo" type="file" accept="image/*" hidden>
           <label for="chat-input" class="sr-only" data-i18n="chat.placeholder">Message</label>
           <textarea id="chat-input" rows="1" maxlength="2000" data-i18n-placeholder="chat.placeholder"
-                    placeholder="Ask about an item or a rule…"></textarea>
+                    placeholder="Ask about an item or a ruleâ€¦"></textarea>
           <button type="submit" class="btn primary send-btn" aria-label="Send" data-i18n="chat.send">Send</button>
         </form>
         <p class="muted tiny chat-note" data-i18n="chat.disclaimer">General guidance, not legal advice. Verify local rules with your municipal corporation.</p>
@@ -172,6 +172,7 @@
         </div>
         <div id="cat-breakdown" class="breakdown"></div>
         <button id="history-refresh" class="btn ghost small" data-i18n="history.refresh">Refresh</button>
+        <a class="admin-link" href="admin.html">Admin panel →</a>
       </div>
       <div id="history-list" class="history-list"></div>
     </section>
@@ -179,16 +180,16 @@
 
   <nav class="tabbar" aria-label="Main navigation">
     <button id="nav-scan" class="navbtn active" data-tab="scan" aria-current="page">
-      <span aria-hidden="true">◉</span><span data-i18n="nav.scan">Scan</span>
+      <span aria-hidden="true">â—‰</span><span data-i18n="nav.scan">Scan</span>
     </button>
     <button id="nav-chat" class="navbtn" data-tab="chat">
-      <span aria-hidden="true">💬</span><span data-i18n="nav.chat">Chat</span>
+      <span aria-hidden="true">ðŸ’¬</span><span data-i18n="nav.chat">Chat</span>
     </button>
     <button id="nav-map" class="navbtn" data-tab="map">
-      <span aria-hidden="true">📍</span><span data-i18n="nav.map">Map</span>
+      <span aria-hidden="true">ðŸ“</span><span data-i18n="nav.map">Map</span>
     </button>
     <button id="nav-history" class="navbtn" data-tab="history">
-      <span aria-hidden="true">🌱</span><span data-i18n="nav.history">Impact</span>
+      <span aria-hidden="true">ðŸŒ±</span><span data-i18n="nav.history">Impact</span>
     </button>
   </nav>
 
@@ -196,7 +197,7 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
           integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
-  <script src="config.js?v=20261117"></script>
-  <script src="app.js?v=20261117"></script>
+  <script src="config.js?v=20261120"></script>
+  <script src="app.js?v=20261120"></script>
 </body>
 </html>

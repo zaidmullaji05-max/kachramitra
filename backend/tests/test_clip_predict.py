@@ -183,3 +183,33 @@ def test_low_margin_is_marked_uncertain():
     out = fuse(img, clp)
     assert out["item"] in {"paper", "cardboard"}
     assert out["uncertain"] is True
+
+
+def test_one_supporter_does_not_cap_confidence_at_the_weights():
+    # CLIP is certain, ImageNet names something else. Averaging the two distributions
+    # used to report ~0.55 for a correct answer; that looked like "we are guessing".
+    img = _imagenet("plastic_bottle", 0.67, [("paint_chemical", 0.12), ("medicine", 0.08)])
+    clp = _clipout("metal_can", 0.90, alts=[("plastic_bottle", 0.08)])
+    out = fuse(img, clp)
+    assert out["item"] == "metal_can"
+    assert out["confidence"] > 0.75
+    assert out["uncertain"] is False
+
+
+def test_agreement_uses_the_more_certain_model():
+    img = _imagenet("laptop", 0.62, [("monitor_tv", 0.10)])
+    clp = _clipout("laptop", 0.88, alts=[("monitor_tv", 0.04)])
+    out = fuse(img, clp)
+    assert out["item"] == "laptop"
+    assert out["confidence"] >= 0.88
+
+
+def test_full_distribution_is_used_instead_of_top_three():
+    # The item that wins is outside the truncated top_k lists, but present in `probs`.
+    img = _imagenet("battery", 0.34, [("charger_cable", 0.31)])
+    img["probs"] = {"battery": 0.34, "charger_cable": 0.31, "metal_scrap": 0.35}
+    clp = _clipout("battery", 0.55, alts=[("plastic_bottle", 0.05)])
+    clp["probs"] = {"battery": 0.55, "plastic_bottle": 0.05, "charger_cable": 0.4}
+    out = fuse(img, clp)
+    assert out["item"] == "battery"
+    assert out["top_k"][0]["id"] == "battery"
