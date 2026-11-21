@@ -16,3 +16,6 @@ psycopg_pool>=3.2
 
 # dev / test only
 pytest>=8.0
+
+# Verify Neon Managed Better Auth JWTs against the branch JWKS.
+PyJWT[crypto]>=2.10,<3

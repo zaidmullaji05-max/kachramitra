@@ -64,23 +64,59 @@ def _bearer(request: Request) -> str:
     return header[7:].strip() if header.lower().startswith("bearer ") else ""
 
 
+def user_from_token(settings, token: str) -> dict | None:
+    """Resolve either a legacy app token or a verified Neon Auth JWT to an app user."""
+    if not token:
+        return None
+
+    # Keep existing sessions valid during migration.
+    claims = security.read_user_token(token, settings.auth_secret_value)
+    if claims:
+        user = db.get_user(settings, claims["user_id"])
+        return user if user and user["is_active"] else None
+
+    # New sessions are issued by Neon Managed Better Auth.
+    from .neon_auth import verify_neon_token
+    neon_claims = verify_neon_token(settings, token)
+    if not neon_claims:
+        return None
+
+    user_id = neon_claims["sub"]
+    email = (neon_claims.get("email") or "").strip().lower()
+    name = (neon_claims.get("name") or (email.split("@")[0] if email else "User")).strip()[:80]
+    user = db.get_user(settings, user_id)
+    if not user and email:
+        # Preserve existing app roles and scan history for users who already had an account.
+        user = db.get_user_by_email(settings, email)
+    if not user:
+        user = {
+            "id": user_id,
+            "email": email,
+            "name": name,
+            # Neon owns the password. This unusable marker prevents legacy password login.
+            "password_hash": "managed-by-neon-auth",
+            "is_active": 1,
+            "is_admin": 0,
+            "created_at": db.now_iso(),
+            "last_login_at": db.now_iso(),
+        }
+        try:
+            db.create_user(settings, user)
+        except Exception:
+            # Concurrent first requests may race on the unique email constraint.
+            user = db.get_user_by_email(settings, email) if email else None
+            if not user:
+                raise
+    if not user or not user["is_active"]:
+        return None
+    return user
+
+
 def current_user(request: Request, required: bool = False) -> dict | None:
     """Resolve the Authorization header. Used directly by /classify and /history."""
-    token = _bearer(request)
-    if not token:
-        if required:
-            raise HTTPException(status_code=401, detail="sign in required")
-        return None
-    claims = security.read_user_token(token, _settings(request).auth_secret_value)
-    if not claims:
-        if required:
-            raise HTTPException(status_code=401, detail="session expired, sign in again")
-        return None
-    user = db.get_user(_settings(request), claims["user_id"])
-    if not user or not user["is_active"]:
-        if required:
-            raise HTTPException(status_code=401, detail="account not found or disabled")
-        return None
+    user = user_from_token(_settings(request), _bearer(request))
+    if not user and required:
+        raise HTTPException(status_code=401, detail="sign in required or session expired")
     return user
 
 

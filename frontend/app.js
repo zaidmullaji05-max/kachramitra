@@ -542,19 +542,22 @@
   }
 
   async function restoreAuth() {
-    const raw = localStorage.getItem("waste.auth");
-    if (!raw) return;
-    let parsed;
-    try { parsed = JSON.parse(raw); } catch { clearAuth(); return; }
-    if (!parsed || !parsed.token) { clearAuth(); return; }
-    state.auth = parsed;
-    refreshAuthUI();
     try {
+      const neon = await window.neonAuthReady;
+      if (neon?.error) throw new Error(neon.error);
+      if (!neon) throw new Error("Neon Auth client did not initialize");
+      const authState = await neon.getSession();
+      if (!authState.token || !authState.session) {
+        clearAuth();
+        return;
+      }
+      state.auth = { token: authState.token, user: authState.session.user || authState.session.data?.user || null };
       const me = await api("/auth/me", {}, 10000);
       state.auth.user = me.user;
       localStorage.setItem("waste.auth", JSON.stringify(state.auth));
       refreshAuthUI();
-    } catch {
+    } catch (err) {
+      console.warn("Neon Auth session restore:", err.message);
       clearAuth();
     }
   }
@@ -616,14 +619,22 @@
     btn.disabled = true;
     error.classList.add("hidden");
     try {
-      const path = state.authMode === "up" ? "/auth/signup" : "/auth/login";
-      const payload = { email, password, ...(state.authMode === "up" ? { name } : {}) };
-      const res = await api(path, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload)
-      }, 20000);
-      setAuth(res.token, res.user);
+      const neon = await window.neonAuthReady;
+      if (neon?.error) throw new Error(neon.error);
+      if (!neon) throw new Error("Neon Auth is unavailable. Refresh and try again.");
+      const result = state.authMode === "up"
+        ? await neon.signUp({ email, password, name })
+        : await neon.signIn({ email, password });
+      if (!result.token) {
+        throw new Error("Authentication completed but no session token was returned. If email verification is enabled, verify your email and sign in again.");
+      }
+      const me = await fetch(API + "/auth/me", {
+        headers: { "Authorization": "Bearer " + result.token, "X-Device-Id": state.deviceId },
+        cache: "no-store"
+      });
+      const body = await me.json().catch(() => ({}));
+      if (!me.ok) throw new Error(body.detail || "Could not create your application profile.");
+      setAuth(result.token, body.user);
       closeAuth();
       toast(signedInText());
     } catch (err) {
@@ -641,7 +652,17 @@
   }
 
   async function handleAuthClick() {
-    if (state.auth) { clearAuth(); return; }
+    if (state.auth) {
+      try {
+        const neon = await window.neonAuthReady;
+        if (neon && !neon.error) await neon.signOut();
+      } catch (err) {
+        console.warn("Neon Auth sign-out:", err);
+      }
+      clearAuth();
+      toast(t("auth.logout"));
+      return;
+    }
     openAuth();
   }
 

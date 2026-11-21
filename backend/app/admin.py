@@ -59,14 +59,11 @@ def _password(request: Request) -> str:
 
 
 def _admin_from_user_token(request: Request, token: str) -> dict | None:
-    """An app login token is accepted here only when that account is an active admin."""
-    if not token or token.count(".") != 2:
+    """Accept a legacy app token or verified Neon JWT only for active app admins."""
+    if not token:
         return None
-    settings = request.app.state.settings
-    claims = security.read_user_token(token, settings.auth_secret_value)
-    if not claims:
-        return None
-    user = db.get_user(settings, claims["user_id"])
+    from .users import user_from_token
+    user = user_from_token(request.app.state.settings, token)
     if not user or not user["is_active"] or not user["is_admin"]:
         return None
     return user

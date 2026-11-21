@@ -34,6 +34,11 @@ services:
       # which is wiped on every free-tier restart.
       - key: DATABASE_URL
         sync: false
+      # Neon Managed Better Auth endpoint and public JWKS URL for API token verification.
+      - key: NEON_AUTH_URL
+        value: "https://ep-green-scene-bijgdygu.neonauth.c-5.ap-southeast-1.aws.neon.tech/neondb/auth"
+      - key: NEON_AUTH_JWKS_URL
+        value: "https://ep-green-scene-bijgdygu.neonauth.c-5.ap-southeast-1.aws.neon.tech/neondb/auth/.well-known/jwks.json"
       # Long random string that signs user login tokens.
       - key: AUTH_SECRET
         sync: false

@@ -15,7 +15,11 @@
     .replace(/\/$/, "");
 
   const TOKEN_KEY = "waste.adminToken";
-  const state = { token: localStorage.getItem(TOKEN_KEY) || "", scansOffset: 0, fbOffset: 0, usersOffset: 0, view: "scans" };
+  function appSessionToken() {
+    try { return JSON.parse(localStorage.getItem("waste.auth") || "null")?.token || ""; }
+    catch { return ""; }
+  }
+  const state = { token: appSessionToken() || localStorage.getItem(TOKEN_KEY) || "", scansOffset: 0, fbOffset: 0, usersOffset: 0, view: "scans" };
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
