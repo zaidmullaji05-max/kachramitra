@@ -1,0 +1,466 @@
+# Single source of truth for labels, aliases, and disposal guidance.
+# Consumed by: dataset builder (step 3), classifier post-processing, /classify response,
+# agent prompts, and the UI (icons + colours + multilingual names).
+#
+# RULES
+#  1. `items[].id` is the model's fine-grained output label. Category is derived, never predicted directly.
+#  2. `flags` are orthogonal to category (a CFL is ewaste + hazardous).
+#  3. Every source label MUST appear in `sources`; unknown labels must raise, not fall back to `general`.
+#  4. Guidance is *practical*, rule-anchored, and never overrides a hazard warning.
+
+version: 1
+locale: en-IN
+jurisdiction: IN
+
+classes:
+  ewaste:
+    en: E-waste
+    hi: ई-कचरा
+    mr: ई-कचरा
+    color: "#6d28d9"
+    icon: "plug"
+    bin: "Authorized e-waste collection point / brand take-back centre"
+    rule_refs:
+      - title: "E-Waste (Management) Rules, 2022"
+        note: "EPR-based; only registered recyclers/dismantlers may process e-waste. Informal handling (acid leaching, open burning) is prohibited."
+      - title: "Battery Waste Management Rules, 2022"
+        note: "Applies to all battery chemistries; producers must collect via EPR."
+    steps:
+      - "Wipe/erase personal data if the device stores memory."
+      - "Keep accessories together (charger with cable) — recyclers recover more material."
+      - "Hand over at a brand take-back counter, municipal e-waste bin, or CPCB-registered recycler."
+      - "Ask for a receipt/acknowledgement if handing over bulk items."
+    do_not:
+      - "Do not sell to an informal scrap buyer who breaks/burns it."
+      - "Do not put e-waste in the blue dry-waste bin or household bin."
+    items:
+      - id: phone
+        en: Mobile phone
+        hi: मोबाइल फ़ोन
+        mr: मोबाईल फोन
+        flags: []
+      - id: laptop
+        en: Laptop / computer
+        hi: लैपटॉप / कंप्यूटर
+        mr: लॅपटॉप / संगणक
+        flags: []
+      - id: monitor_tv
+        en: Monitor / television
+        hi: मॉनिटर / टीवी
+        mr: मॉनिटर / टीव्ही
+        flags: []
+      - id: printer
+        en: Printer / scanner
+        hi: प्रिंटर / स्कैनर
+        mr: प्रिंटर / स्कॅनर
+        flags: []
+      - id: charger_cable
+        en: Charger / cable
+        hi: चार्जर / केबल
+        mr: चार्जर / केबल
+        flags: []
+      - id: battery
+        en: Battery
+        hi: बैटरी
+        mr: बॅटरी
+        flags: [hazardous, fire_risk]
+        override:
+          steps:
+            - "Tape both terminals with clear tape (prevents short-circuit fires)."
+            - "Keep in a dry, non-metal container — never in a pocket with keys/coins."
+            - "If swollen, leaking, or hot: do not charge, do not puncture; isolate outdoors and call the helpline."
+            - "Drop at a battery collection bin, brand service centre, or authorized e-waste recycler."
+          do_not:
+            - "Do not throw in household waste — landfill fires and heavy-metal leaching."
+            - "Do not store loose batteries in a drawer with metal objects."
+      - id: circuit_board
+        en: Circuit board / PCB
+        hi: सर्किट बोर्ड
+        mr: सर्किट बोर्ड
+        flags: []
+      - id: bulb_tube_light
+        en: Bulb / tube light
+        hi: बल्ब / ट्यूबलाइट
+        mr: बल्ब / ट्यूबलाईट
+        flags: [hazardous]
+        override:
+          steps:
+            - "CFL and tube lights contain mercury vapour — handle by the ends, never by the glass."
+            - "Place in the original carton or wrap in newspaper, then a sealed bag."
+            - "Hand over to an authorized e-waste recycler or municipal hazardous-waste collection."
+          do_not:
+            - "Do not break, crush, or burn."
+            - "Do not vacuum a broken tube (spreads mercury dust); ventilate the room and use gloves."
+            - "Do not give to a scrap dealer who breaks tubes in the open."
+      - id: small_appliance
+        en: Small appliance
+        hi: छोटा उपकरण
+        mr: लहान उपकरण
+        flags: []
+        examples: ["microwave", "toaster", "mixer", "hair dryer", "iron", "router"]
+
+  recyclable:
+    en: Recyclable (dry waste)
+    hi: पुनर्चक्रण योग्य (सूखा कचरा)
+    mr: पुनर्वापरयोग्य (कोरडा कचरा)
+    color: "#0f766e"
+    icon: "recycle"
+    bin: "Blue bin — dry waste (or hand to the kabadiwala / MRF)"
+    rule_refs:
+      - title: "Solid Waste Management Rules, 2016"
+        note: "Segregation at source: wet (green), dry (blue), domestic hazardous (red/black)."
+      - title: "Plastic Waste Management Rules, 2016 (amended)"
+        note: "Single-use plastic items under 120 micron are banned since 1 July 2022; EPR applies to packaging."
+    steps:
+      - "Empty and scrape out food/liquid residue."
+      - "Rinse quickly if sticky; let it dry — wet recyclables spoil the batch."
+      - "Flatten bottles and cartons to save space."
+      - "Keep caps on (most Indian MRFs accept them with the bottle)."
+      - "Put in the blue dry-waste bin or sell to a local kabadiwala / scrap dealer."
+    do_not:
+      - "Do not bag recyclables in a black bag — collectors treat black bags as mixed waste."
+      - "Do not mix with wet kitchen waste."
+    items:
+      - id: plastic_bottle
+        en: Plastic bottle
+        hi: प्लास्टिक की बोतल
+        mr: प्लास्टिकची बाटली
+        flags: []
+        examples: ["water bottle", "cold-drink bottle", "shampoo bottle", "PET bottle"]
+      - id: plastic_container
+        en: Plastic container / tub
+        hi: प्लास्टिक डिब्बा
+        mr: प्लास्टिक डबा
+        flags: []
+        examples: ["yogurt tub", "ice-cream tub", "food container", "bucket"]
+      - id: plastic_film
+        en: Plastic film / bag
+        hi: प्लास्टिक फिल्म / थैली
+        mr: प्लास्टिक फिल्म / पिशवी
+        flags: []
+        examples: ["carry bag", "milk pouch (rinsed)", "bubble wrap", "shrink wrap"]
+      - id: paper
+        en: Paper
+        hi: कागज़
+        mr: कागद
+        flags: []
+        examples: ["newspaper", "notebook", "office paper", "envelope"]
+      - id: cardboard
+        en: Cardboard
+        hi: गत्ता / कार्डबोर्ड
+        mr: पुठ्ठा / कार्डबोर्ड
+        flags: []
+        examples: ["shipping box", "carton", "cereal box"]
+      - id: glass_container
+        en: Glass bottle / jar
+        hi: काँच की बोतल / जार
+        mr: काचेची बाटली / बरणी
+        flags: []
+        examples: ["jam jar", "beer bottle", "sauce bottle"]
+        notes: "Broken glass → wrap in thick paper, label 'BROKEN GLASS', add flags:[sharps]."
+      - id: metal_can
+        en: Metal can / tin
+        hi: धातु का डिब्बा
+        mr: धातूचा डबा
+        flags: []
+        examples: ["soft-drink can", "tin can", "food tin"]
+      - id: metal_scrap
+        en: Metal scrap
+        hi: धातु स्क्रैप
+        mr: धातू भंगार
+        flags: []
+        examples: ["foil", "wire", "utensil", "iron piece", "aluminium sheet"]
+      - id: tetra_pak
+        en: Tetra-pak / juice carton
+        hi: टेट्रा पैक
+        mr: टेट्रा पॅक
+        flags: []
+        notes: "Multi-layer (paper+poly+foil). Rinse, flatten, dry; only some municipal MRFs accept it — else general."
+      - id: textile
+        en: Cloth / textile
+        hi: कपड़ा
+        mr: कापड
+        flags: []
+        steps_extra: ["Donate wearable items first; torn cloth goes to textile recyclers, not the wet bin."]
+
+  general:
+    en: General / non-recyclable waste
+    hi: सामान्य कचरा (गीला-सूखा मिश्रित)
+    mr: सामान्य कचरा
+    color: "#4b5563"
+    icon: "trash"
+    bin: "Grey/black bin — reject waste (or the mixed-waste bin)"
+    rule_refs:
+      - title: "Solid Waste Management Rules, 2016"
+        note: "Non-recyclable, non-biodegradable rejects go to sanitary landfill / waste-to-energy."
+    steps:
+      - "Make sure it is genuinely non-recyclable (multi-layer wrappers, laminated pouches, ceramics)."
+      - "Empty liquids and wrap sharp edges."
+      - "Put in the reject/mixed bin — never in the wet bin."
+    do_not:
+      - "Do not burn plastic waste — releases dioxins and is an offence under SWM Rules."
+    items:
+      - id: mixed_trash
+        en: Mixed trash
+        hi: मिश्रित कचरा
+        mr: मिश्रित कचरा
+        flags: []
+      - id: food_wrapper
+        en: Chips / snack wrapper
+        hi: चिप्स / स्नैक्स का रैपर
+        mr: चिप्स / स्नॅक्स रॅपर
+        flags: []
+        notes: "Multi-layer metallised film — not recyclable in India's mainstream stream."
+      - id: ceramic
+        en: Ceramic / pottery
+        hi: सिरेमिक / मिट्टी के बर्तन
+        mr: सिरेमिक / मातीची भांडी
+        flags: [sharps]
+      - id: rubber_leather
+        en: Rubber / leather item
+        hi: रबर / चमड़ा
+        mr: रबर / चामडे
+        flags: []
+        examples: ["chappal", "torn hose", "belt", "tyre piece"]
+
+  organic:
+    en: Organic / wet waste
+    hi: जैविक / गीला कचरा
+    mr: सेंद्रिय / ओला कचरा
+    color: "#15803d"
+    icon: "leaf"
+    bin: "Green bin — wet waste (or home compost)"
+    rule_refs:
+      - title: "Solid Waste Management Rules, 2016"
+        note: "Wet waste must be segregated at source; bulk generators must compost on-site."
+    steps:
+      - "Drain excess liquid."
+      - "Remove plastic stickers, rubber bands, and wrappers first."
+      - "Put in the green bin, or home-compost / feed a community composter."
+    do_not:
+      - "Do not mix cooked food with dry recyclables — it contaminates the batch."
+    items:
+      - id: food_waste
+        en: Food waste
+        hi: खाने का कचरा
+        mr: अन्नाचा कचरा
+        flags: []
+        examples: ["vegetable peels", "cooked food", "food scraps", "tea leaves", "compost",
+                   "सब्ज़ी के छिलके", "भाज्यांची साले"]
+      - id: garden_waste
+        en: Leaves / garden waste
+        hi: पत्ते / बगीचे का कचरा
+        mr: पाने / बागेतील कचरा
+        flags: []
+
+  hazardous:
+    en: Domestic hazardous waste
+    hi: घरेलू खतरनाक कचरा
+    mr: घरगुती धोकादायक कचरा
+    color: "#b91c1c"
+    icon: "warning"
+    bin: "Red/black bin — domestic hazardous waste collection (never the regular bin)"
+    rule_refs:
+      - title: "Solid Waste Management Rules, 2016 — Schedule I (domestic hazardous waste)"
+        note: "Includes paints, pesticides, aerosols, mercury items, waste oil; separate collection required."
+      - title: "Hazardous & Other Wastes (Management) Rules, 2016"
+    steps:
+      - "Keep in the original container with the label readable, lid tightly closed."
+      - "Never mix different chemicals or transfer to a food/water bottle."
+      - "Hand over on the municipal hazardous-waste collection day or at a designated drop-off."
+    do_not:
+      - "Do not pour down a drain, sink, or storm water drain."
+      - "Do not burn or bury."
+    items:
+      - id: paint_chemical
+        en: Paint / chemical container
+        hi: पेंट / रसायन का डिब्बा
+        mr: पेंट / रसायनाचा डबा
+        flags: [hazardous]
+      - id: aerosol
+        en: Aerosol / spray can
+        hi: एरोसोल स्प्रे
+        mr: एरोसोल स्प्रे
+        flags: [hazardous, fire_risk]
+        override:
+          steps:
+            - "Do not puncture or incinerate — pressurised container."
+            - "Use up the contents or spray out outdoors away from flame before disposal."
+            - "Hand over at a hazardous-waste drop-off."
+      - id: mercury_item
+        en: Mercury item (thermometer / CFL)
+        hi: पारा युक्त वस्तु (थर्मामीटर / CFL)
+        mr: पारा असलेली वस्तू (थर्मामीटर / CFL)
+        flags: [hazardous]
+        override:
+          steps:
+            - "Do not break. Store in a rigid, sealed container."
+            - "If broken: ventilate, do not vacuum, wear gloves, pick up with cardboard, seal in a bag."
+            - "Hand over to an authorized e-waste/hazardous-waste facility."
+          do_not:
+            - "Do not put in the dry-waste bin."
+
+  biomedical:
+    en: Biomedical waste
+    hi: बायोमेडिकल कचरा
+    mr: बायोमेडिकल कचरा
+    color: "#a21caf"
+    icon: "biohazard"
+    bin: "Yellow/red biomedical bin — never household waste"
+    rule_refs:
+      - title: "Bio-Medical Waste Management Rules, 2016"
+        note: "Yellow: human/animal anatomical & soiled waste, expired medicines. Red: contaminated recyclable plastic. White: sharps."
+      - title: "Solid Waste Management Rules, 2016"
+        note: "Sanitary waste must be wrapped and given separately, marked as sanitary waste."
+    steps:
+      - "Never recap, bend, or break a needle."
+      - "Sharps → puncture-proof container (white category)."
+      - "Soiled dressings, gloves, masks → yellow bag."
+      - "Expired medicines → pharmacy take-back bin or yellow bag; do not flush."
+    do_not:
+      - "Do not put sharps in a plastic bag — they injure waste workers."
+    items:
+      - id: syringe
+        en: Syringe / needle
+        hi: सिरिंज / सुई
+        mr: सिरिंज / सुई
+        flags: [hazardous, sharps]
+      - id: medicine
+        en: Expired medicine
+        hi: एक्सपायर दवा
+        mr: कालबाह्य औषध
+        flags: [hazardous]
+      - id: dressing
+        en: Bandage / dressing / mask
+        hi: पट्टी / मास्क
+        mr: पट्टी / मास्क
+        flags: []
+      - id: sanitary_waste
+        en: Sanitary waste
+        hi: सैनिटरी वेस्ट
+        mr: सॅनिटरी वेस्ट
+        flags: []
+        steps_extra: ["Wrap in paper, then a bag, and mark it clearly as sanitary waste."]
+
+# ---------------------------------------------------------------------------
+# Source-label aliases → item ids.
+# Keys are lowercased, punctuation-stripped source labels.
+# Anything not listed here MUST raise LookupError at build time.
+# ---------------------------------------------------------------------------
+sources:
+  trashnet:
+    cardboard: cardboard
+    paper: paper
+    glass: glass_container
+    plastic: plastic_bottle
+    metal: metal_scrap
+    trash: mixed_trash
+
+  taco:
+    aluminium foil: metal_scrap
+    metal can: metal_can
+    pop tab: metal_can
+    scrap metal: metal_scrap
+    plastic bottle: plastic_bottle
+    clear plastic bottle: plastic_bottle
+    plastic film: plastic_film
+    other plastic: plastic_container
+    glass bottle: glass_container
+    glass jar: glass_container
+    broken glass: glass_container
+    paper: paper
+    cardboard: cardboard
+    newspaper: paper
+    magazine paper: paper
+    cigarette: mixed_trash
+    styrofoam piece: mixed_trash
+    paper cup: mixed_trash
+    plastic straw: mixed_trash
+    battery: battery
+    light bulb: bulb_tube_light
+    food waste: food_waste
+    organic: food_waste
+
+  garbage12:            # Kaggle "Garbage Classification" (12 classes)
+    battery: battery
+    biological: food_waste
+    cardboard: cardboard
+    clothes: textile
+    shoes: textile
+    glass: glass_container
+    brown-glass: glass_container
+    green-glass: glass_container
+    white-glass: glass_container
+    metal: metal_scrap
+    paper: paper
+    plastic: plastic_bottle
+    trash: mixed_trash
+
+  realwaste:            # UCI RealWaste
+    cardboard: cardboard
+    food organics: food_waste
+    glass: glass_container
+    metal: metal_scrap
+    misc. trash: mixed_trash
+    miscellaneous trash: mixed_trash
+    paper: paper
+    plastic: plastic_bottle
+    textile trash: textile
+    vegetable organics: food_waste
+
+  zerowaste:
+    rigid plastic: plastic_container
+    clear plastic: plastic_film
+    plastic bag: plastic_film
+    metal: metal_scrap
+    cardboard: cardboard
+    paper: paper
+    glass: glass_container
+    organic: food_waste
+    textile: textile
+    other: mixed_trash
+
+  openimages:           # crop the bounding box, then label
+    mobile phone: phone
+    tablet computer: phone
+    laptop: laptop
+    keyboard: laptop
+    mouse: laptop
+    printer: printer
+    computer monitor: monitor_tv
+    television: monitor_tv
+    light bulb: bulb_tube_light
+    microwave oven: small_appliance
+    toaster: small_appliance
+    hair dryer: small_appliance
+
+  coco:
+    bottle: plastic_bottle
+    wine glass: glass_container
+    cup: mixed_trash
+    cell phone: phone
+    laptop: laptop
+    keyboard: laptop
+    mouse: laptop
+    tv: monitor_tv
+    microwave: small_appliance
+    toaster: small_appliance
+    book: paper
+
+  roboflow_biomedical:
+    syringe: syringe
+    needle: syringe
+    iv bottle: dressing
+    bandage: dressing
+    mask: dressing
+    medicine strip: medicine
+    expired medicine: medicine
+    sanitary pad: sanitary_waste
+
+  roboflow_hazardous:
+    paint can: paint_chemical
+    pesticide bottle: paint_chemical
+    chemical container: paint_chemical
+    aerosol: aerosol
+    spray can: aerosol
+    thermometer: mercury_item

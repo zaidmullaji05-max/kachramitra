@@ -1,0 +1,68 @@
+# Render blueprint: the FastAPI backend.
+# Import the repo at https://dashboard.render.com/blueprints and Render reads this file.
+services:
+  - type: web
+    name: kachra-mitra-api
+    runtime: python
+    plan: free
+    region: singapore
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    autoDeploy: true
+    envVars:
+      # Render's Python build image; keep in sync with docs/08-setup.md
+      - key: PYTHON_VERSION
+        value: "3.12.6"
+      # Real pretrained classifier, mapped onto the waste taxonomy.
+      - key: ONNX_PATH
+        value: artifacts_pretrained/mobilenet_v3_large_imagenet.onnx
+      - key: LABELS_PATH
+        value: artifacts_pretrained/labels.json
+      # Zero-shot CLIP head: covers items ImageNet has no class for (battery, charger...).
+      - key: CLIP_ENABLED
+        value: "true"
+      - key: CLIP_MODEL_PATH
+        value: artifacts_clip/mobileclip2_s0_visual_fp16.onnx
+      - key: CLIP_EMBEDS_PATH
+        value: artifacts_clip/clip_text_embeds.npz
+      - key: LLM_PROVIDER
+        value: fake
+      - key: FACILITY_PROVIDER
+        value: auto
+      # Neon connection string. Render prompts for it. Leave blank to use SQLite,
+      # which is wiped on every free-tier restart.
+      - key: DATABASE_URL
+        sync: false
+      # Long random string that signs user login tokens.
+      - key: AUTH_SECRET
+        sync: false
+      # Optional open-vocabulary identification (Gemini or Groq vision).
+      - key: VISION_PROVIDER
+        value: auto
+      # Free Render disks are ephemeral: history survives until the next deploy/restart.
+      - key: DB_PATH
+        value: /tmp/kachra-mitra.db
+      # Set this to your Vercel URL after the frontend is live, e.g.
+      # https://kachra-mitra.vercel.app  (or keep * while testing)
+      - key: ALLOW_ORIGINS
+        value: "*"
+      - key: RATE_LIMIT_PER_MIN
+        value: "30"
+      # Keep image uploads disabled until CLOUDINARY_URL is configured.
+      - key: IMAGE_STORAGE
+        value: "false"
+      - key: CLOUDINARY_FOLDER
+        value: kachra-mitra/scans
+      # Dashboard -> Programmable Media -> API environment variable.
+      # Render prompts for this on first deploy. Leave blank to keep image storage off.
+      - key: CLOUDINARY_URL
+        sync: false
+      # Admin panel (/admin). Render prompts for it; leave blank to keep the panel off.
+      - key: ADMIN_PASSWORD
+        sync: false
+      # Optional. With ADMIN_PASSWORD, this email is created as an admin user.
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_TOKEN_TTL_HOURS
+        value: "12"

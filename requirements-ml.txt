@@ -1,0 +1,20 @@
+# ML dependencies — install with:
+#   py -m venv .venv
+#   .\.venv\Scripts\activate          (Windows)  /  source .venv/bin/activate  (Linux/macOS)
+#   pip install -r requirements-ml.txt
+#
+# For a CUDA build of torch, use the index URL from https://pytorch.org/get-started/locally/
+# CPU-only is fine: this model classifies a 224px image in ~10-30 ms on a laptop CPU.
+
+torch>=2.6
+torchvision>=0.21
+numpy>=1.26
+pillow>=10.2
+pyyaml>=6.0
+scikit-learn>=1.4       # metrics + confusion matrix
+matplotlib>=3.8         # confusion matrix PNG
+onnx>=1.16              # export + graph checker
+onnxscript>=0.1         # required by torch 2.9+ ONNX exporter
+onnxruntime>=1.18       # CPU inference (also used to verify the export)
+open_clip_torch>=2.26   # build-time only: exports the MobileCLIP text+image encoder
+tqdm>=4.66

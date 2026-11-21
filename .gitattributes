@@ -1,0 +1,8 @@
+# Keep model/image blobs out of text diffs and line-ending conversion.
+*.onnx binary
+*.pt binary
+*.tflite binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.npz binary

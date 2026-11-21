@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#f6f9f8">
+  <meta name="description" content="Kachra Mitra — scan a waste item like a lens, get disposal steps, chat about the rules, and find a drop-off point.">
+  <title>Kachra Mitra — Smart Waste Assistant</title>
+  <link rel="stylesheet" href="styles.css?v=20261122">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true">♻</span>
+      <div class="brand-text">
+        <strong data-i18n="app.name">Kachra Mitra</strong>
+        <small data-i18n="app.tagline">Scan it. Sort it. Dispose of it right.</small>
+      </div>
+    </div>
+    <div class="top-actions">
+      <a id="admin-jump" class="btn tiny ghost hidden" href="admin.html" data-i18n="auth.admin">Admin</a>
+      <button id="account-btn" class="btn tiny ghost account-btn" type="button" data-i18n="auth.login">Log in</button>
+      <div class="langs" role="group" aria-label="Language">
+        <button class="lang" data-lang="en" aria-pressed="true">EN</button>
+        <button class="lang" data-lang="hi" aria-pressed="false">हिं</button>
+        <button class="lang" data-lang="mr" aria-pressed="false">मर</button>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============================================================ SCAN -->
+    <section id="tab-scan" class="tab active" aria-labelledby="nav-scan">
+      <h1 class="sr-only" data-i18n="scan.title">What are you throwing away?</h1>
+
+      <div class="lens-stage" id="lens-stage">
+        <div class="lens-empty" id="lens-empty">
+          <div class="lens-orb" aria-hidden="true"><span>♻</span></div>
+          <p class="lens-empty-title" data-i18n="scan.point">Point at a waste item</p>
+          <p class="lens-empty-sub" data-i18n="scan.center">Keep one item inside the frame — good light, clean background.</p>
+        </div>
+
+        <div id="preview-wrap" class="preview-wrap hidden">
+          <img id="preview" alt="Selected waste item">
+        </div>
+
+        <div class="lens-brackets" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
+        <div class="lens-scanline" aria-hidden="true"></div>
+
+        <div class="lens-badge"><span class="dot" aria-hidden="true"></span><span data-i18n="scan.ai">AI scan</span></div>
+
+        <button id="clear-photo" class="lens-clear hidden" aria-label="Remove photo" title="Remove">✕</button>
+
+        <div class="lens-status" aria-hidden="true">
+          <span class="lens-dots"><i></i><i></i><i></i></span>
+          <span data-i18n="scan.scanning">Scanning…</span>
+        </div>
+
+        <p class="lens-hint" data-i18n="scan.tap">Tap the shutter to identify</p>
+
+        <div class="lens-controls">
+          <label class="lens-side" for="upload" title="Upload from gallery">
+            <span class="lens-side-icon" aria-hidden="true">🖼️</span>
+            <span data-i18n="scan.gallery">Gallery</span>
+          </label>
+          <input id="upload" type="file" accept="image/*" hidden>
+
+          <button id="classify-btn" class="shutter" disabled aria-label="Scan item">
+            <span class="shutter-ring" aria-hidden="true"></span>
+            <span class="shutter-core" aria-hidden="true"></span>
+            <span id="classify-label" class="sr-only" data-i18n="scan.analyse">Scan item</span>
+          </button>
+
+          <label class="lens-side" for="camera" title="Take a photo">
+            <span class="lens-side-icon" aria-hidden="true">📷</span>
+            <span data-i18n="scan.cameraShort">Camera</span>
+          </label>
+          <input id="camera" type="file" accept="image/*" capture="environment" hidden>
+        </div>
+      </div>
+
+      <div class="scan-side">
+        <div class="scan-bar">
+          <div class="scan-input">
+            <span class="scan-spark" aria-hidden="true">✦</span>
+            <label for="text-hint" class="sr-only" data-i18n="scan.hintLabel">Description</label>
+            <input id="text-hint" type="text" maxlength="120" data-i18n-placeholder="scan.hintPlaceholder"
+                   placeholder="Describe the item (optional)">
+            <button type="button" id="scan-go" class="scan-go" aria-label="Scan item" disabled>
+              <span aria-hidden="true">→</span>
+            </button>
+          </div>
+          <button type="button" id="extra-toggle" class="scan-more" aria-expanded="false" aria-controls="scan-extra">
+            <span aria-hidden="true">＋</span> <span data-i18n="scan.more">Barcode</span>
+          </button>
+          <div id="scan-extra" class="scan-extra hidden">
+            <label for="barcode" data-i18n="scan.barcodePlaceholder">Barcode (optional)</label>
+            <input id="barcode" type="text" inputmode="numeric" maxlength="14"
+                   data-i18n-placeholder="scan.barcodePlaceholder" placeholder="Barcode (optional)">
+          </div>
+        </div>
+
+        <p id="scan-error" class="error hidden" role="alert"></p>
+
+        <div id="result" class="result sheet hidden" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- ============================================================ CHAT -->
+    <section id="tab-chat" class="tab" aria-labelledby="nav-chat">
+      <div class="chat-card">
+        <div class="chat-head">
+          <div>
+            <h1 data-i18n="chat.title">Ask Kachra Mitra</h1>
+            <p class="muted small" data-i18n="chat.subtitle">Rules, bins, composting, e-waste, batteries — in your language.</p>
+          </div>
+          <button id="chat-new" class="btn tiny ghost" data-i18n="chat.new">New chat</button>
+        </div>
+
+        <div id="messages" class="messages" aria-live="polite"></div>
+
+        <div id="chips" class="chips">
+          <button class="chip">💡 <span data-i18n="chat.chip1">Broken tube light</span></button>
+          <button class="chip">🌱 <span data-i18n="chat.chip2">Composting in a flat</span></button>
+          <button class="chip">🍟 <span data-i18n="chat.chip3">Chips packet</span></button>
+          <button class="chip">🔋 <span data-i18n="chat.chip4">Swollen battery</span></button>
+        </div>
+
+        <form id="chat-form" class="chat-form">
+          <label class="icon-btn" for="chat-photo" title="Attach a photo" aria-label="Attach a photo">📎</label>
+          <input id="chat-photo" type="file" accept="image/*" hidden>
+          <label for="chat-input" class="sr-only" data-i18n="chat.placeholder">Message</label>
+          <textarea id="chat-input" rows="1" maxlength="2000" data-i18n-placeholder="chat.placeholder"
+                    placeholder="Ask about an item or a rule…"></textarea>
+          <button type="submit" class="btn primary send-btn" aria-label="Send" data-i18n="chat.send">Send</button>
+        </form>
+        <p class="muted tiny chat-note" data-i18n="chat.disclaimer">General guidance, not legal advice. Verify local rules with your municipal corporation.</p>
+      </div>
+    </section>
+
+    <!-- ============================================================ MAP -->
+    <section id="tab-map" class="tab" aria-labelledby="nav-map">
+      <div class="card">
+        <h1 data-i18n="map.title">Where to drop it off</h1>
+        <p class="muted" data-i18n="map.subtitle">A live Google Map of places near you. Directions open in Google Maps.</p>
+        <div class="map-controls">
+          <label for="map-category" class="sr-only" data-i18n="map.category">Category</label>
+          <select id="map-category">
+            <option value="ewaste">E-waste</option>
+            <option value="recyclable" selected>Recyclable</option>
+            <option value="organic">Organic</option>
+            <option value="hazardous">Hazardous</option>
+            <option value="biomedical">Biomedical</option>
+            <option value="general">General</option>
+          </select>
+          <button id="locate-btn" class="btn primary" data-i18n="map.locate">Use my location</button>
+        </div>
+        <div class="map-actions">
+          <button id="open-area" class="btn ghost small" type="button" data-i18n="map.openArea">Open this area in Google Maps</button>
+        </div>
+        <p id="map-note" class="note hidden"></p>
+      </div>
+      <div class="map">
+        <iframe id="gmap" title="Google Maps"
+                referrerpolicy="no-referrer-when-downgrade"
+                src="https://maps.google.com/maps?q=19.076,72.8777&z=12&output=embed"></iframe>
+      </div>
+      <div id="facility-list" class="facility-list"></div>
+    </section>
+
+    <!-- ============================================================ HISTORY -->
+    <section id="tab-history" class="tab" aria-labelledby="nav-history">
+      <div class="card">
+        <h1 data-i18n="history.title">Your impact</h1>
+        <p class="muted" id="history-subtitle" data-i18n="history.subtitle">Scans are stored without images - only the item and category.</p>
+        <div class="stats">
+          <div class="stat"><span id="stat-scans">0</span><small data-i18n="history.scans">Scans</small></div>
+          <div class="stat"><span id="stat-points">0</span><small data-i18n="history.points">Eco points</small></div>
+          <div class="stat"><span id="stat-categories">0</span><small data-i18n="history.categories">Categories</small></div>
+        </div>
+        <div id="cat-breakdown" class="breakdown"></div>
+        <button id="history-refresh" class="btn ghost small" data-i18n="history.refresh">Refresh</button>
+        <p id="account-line" class="muted tiny"></p>
+      </div>
+      <div id="history-list" class="history-list"></div>
+    </section>
+  </main>
+
+  <nav class="tabbar" aria-label="Main navigation">
+    <button id="nav-scan" class="navbtn active" data-tab="scan" aria-current="page">
+      <span aria-hidden="true">◉</span><span data-i18n="nav.scan">Scan</span>
+    </button>
+    <button id="nav-chat" class="navbtn" data-tab="chat">
+      <span aria-hidden="true">💬</span><span data-i18n="nav.chat">Chat</span>
+    </button>
+    <button id="nav-map" class="navbtn" data-tab="map">
+      <span aria-hidden="true">📍</span><span data-i18n="nav.map">Map</span>
+    </button>
+    <button id="nav-history" class="navbtn" data-tab="history">
+      <span aria-hidden="true">🌱</span><span data-i18n="nav.history">Impact</span>
+    </button>
+  </nav>
+
+  <div id="toast" class="toast hidden" role="status"></div>
+
+  <div id="auth-dialog" class="auth-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="auth-title">
+    <div class="card auth-card">
+      <div class="auth-head">
+        <h2 id="auth-title" data-i18n="auth.titleIn">Log in</h2>
+        <button type="button" id="auth-close" class="btn tiny ghost" data-i18n="auth.close">Close</button>
+      </div>
+      <p id="auth-blurb" class="muted small" data-i18n="auth.blurb">Sign in to keep your scans. Admins open the dashboard from here.</p>
+      <form id="auth-form" class="auth-form">
+        <label id="auth-name-label" for="auth-name" data-i18n="auth.name">Name</label>
+        <input id="auth-name" type="text" maxlength="80" autocomplete="name">
+        <label for="auth-email" data-i18n="auth.email">Email</label>
+        <input id="auth-email" type="email" autocomplete="username" required>
+        <label for="auth-password" data-i18n="auth.password">Password</label>
+        <input id="auth-password" type="password" autocomplete="current-password" minlength="8" required>
+        <button type="submit" class="btn primary" id="auth-submit" data-i18n="auth.login">Log in</button>
+      </form>
+      <p id="auth-error" class="error hidden" role="alert"></p>
+      <button type="button" id="auth-switch" class="btn ghost small" data-i18n="auth.need">New here? Create an account</button>
+      <a id="auth-admin" class="admin-link hidden" href="admin.html" data-i18n="auth.openAdmin">Open admin dashboard</a>
+    </div>
+  </div>
+
+  <script src="config.js?v=20261122"></script>
+  <script src="app.js?v=20261122"></script>
+</body>
+</html>
