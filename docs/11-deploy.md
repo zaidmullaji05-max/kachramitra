@@ -225,6 +225,49 @@ The SQLite row keeps the old URL; that is harmless, the thumbnail 404s.
 
 ---
 
+## 4A. Admin panel
+
+The panel is served by the same two services — Vercel serves `admin.html`, Render serves
+`/admin/*` — so there is nothing extra to deploy.
+
+1. Render dashboard → your service → **Environment** → add
+
+   | Key | Value |
+   |---|---|
+   | `ADMIN_PASSWORD` | a long random passphrase (**not** `admin`, `1234`, or the project name) |
+   | `ADMIN_TOKEN_TTL_HOURS` | `12` (optional) |
+
+2. **Save** — Render redeploys automatically. If you skip this step the panel stays off
+   and every `/admin/*` call returns `503 admin panel is off`.
+
+3. Open `https://<project>.vercel.app/admin` (or `/app/admin.html` on the Render URL).
+
+   ```powershell
+   # check that the password is actually live
+   curl.exe -X POST https://kachra-mitra-api.onrender.com/admin/login `
+     -H "Content-Type: application/json" -d "{\"password\":\"your passphrase\"}"
+   # -> {"token":"...","expires_at":...,"ttl_s":43200}
+   ```
+
+4. Generate a passphrase instead of inventing one:
+
+   ```powershell
+   [Convert]::ToBase64String((1..24 | % { Get-Random -Max 256 }))
+   ```
+
+Things that surprise people:
+
+- **Scan history is ephemeral on the free plan.** `DB_PATH=/tmp/...` is wiped by every
+  deploy and restart, so the panel resets with it. Export the CSV before you redeploy.
+- **Deep links 404 on Vercel** unless `cleanUrls` is on — it is, in `vercel.json`, so
+  `/admin` works and `/admin.html` also works.
+- **Change the passphrase to revoke access.** Tokens are signed with it; old ones stop
+  verifying immediately.
+- The panel is `noindex,nofollow`, but that is not access control — the password is.
+  There is also a small link to it at the bottom of the Impact tab.
+
+---
+
 ## 5. Verify the deployment
 
 ```powershell

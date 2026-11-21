@@ -60,6 +60,18 @@ python -m pytest tests -q
 | GET | `/history` | `device_id` → scans, totals, category breakdown, eco points |
 | POST | `/feedback` | correction for the active-learning queue |
 
+Admin routes (all read-only, all require `X-Admin-Token` from `POST /admin/login`):
+
+| Method | Path | Purpose |
+|---|---|---|
+| POST | `/admin/login` | `{password}` → `{token, expires_at}`; 503 when `ADMIN_PASSWORD` is empty |
+| GET | `/admin/session` | cheap "is my token still valid" check on page load |
+| GET | `/admin/stats` | totals, today, uncertain rate, 14-day zero-filled trend, category mix, top items |
+| GET | `/admin/scans` | paged log; `category`, `q`, `limit`, `offset` |
+| GET | `/admin/feedback` | corrections LEFT JOINed with the prediction they disagreed with |
+| GET | `/admin/export.csv` | scans + corrections as a CSV download |
+| GET | `/admin/model` | loaded classifier, CLIP state, vision provider, taxonomy size, version |
+
 ### Example: classify
 
 ```powershell

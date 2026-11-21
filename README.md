@@ -184,6 +184,12 @@ uvicorn backend.app.main:app --port 8000
 | GET | `/facilities/{id}/directions` | OSRM steps + Google Maps link |
 | GET | `/history` | scans, totals, category breakdown, eco points |
 | POST | `/feedback` | correction for the active-learning queue |
+| POST | `/admin/login` | `{password}` → signed token (off unless `ADMIN_PASSWORD` is set) |
+| GET | `/admin/stats` | totals, today, uncertain rate, 14-day trend, category mix |
+| GET | `/admin/scans` | paged scan log, filter by category or search text |
+| GET | `/admin/feedback` | corrections joined with the prediction they disagreed with |
+| GET | `/admin/export.csv` | everything above as a spreadsheet download |
+| GET | `/admin/model` | exactly which models the server loaded, and why one is off |
 
 ```powershell
 curl.exe -X POST http://127.0.0.1:8000/classify -F "file=@photo.jpg" -F "lang=hi"
@@ -196,13 +202,14 @@ curl.exe "http://127.0.0.1:8000/facilities?lat=19.11&lng=72.84&category=ewaste"
 
 ```powershell
 cd backend
-..\.venv\Scripts\python.exe -m pytest tests -q      # 41 passed
+..\.venv\Scripts\python.exe -m pytest tests -q      # 69 passed
 ```
 
 The suite passes with **no API key and no model**. With the shipped pretrained model, the
 full `/classify` path and the image-in-chat path also run. New tests cover ImageNet
-probability aggregation, the laptop/notebook guard, vision JSON parsing, and the
-vision→taxonomy conversion.
+probability aggregation, the laptop/notebook guard, vision JSON parsing, the
+vision→taxonomy conversion, the admin API (tokens, throttling, CSV), and the raw bytes of
+every frontend asset (a wrong codec once turned हिंदी into `à¤¹à¤¿à¤‚à¤¦à¥€`).
 
 ```powershell
 # CI runs the same suite on every push (no torch, ~1 min)
@@ -224,8 +231,34 @@ Copy `backend/.env.example` to `backend/.env`. Defaults are demo-safe.
 | `DB_PATH` | `backend/data/app.db` | SQLite |
 | `RATE_LIMIT_PER_MIN` | `30` | per IP, in-memory |
 | `ALLOW_ORIGINS` | `*` | tighten in production |
+| `ADMIN_PASSWORD` | empty | admin panel passphrase; **empty = panel off** |
 
 Full table and troubleshooting: `docs/08-setup.md`.
+
+## Admin panel
+
+Open **`/admin`** (on Vercel: `https://<project>.vercel.app/admin`, locally:
+`http://127.0.0.1:8000/app/admin.html`) and sign in with `ADMIN_PASSWORD`.
+
+It is read-only and stateless — no second database, no user table:
+
+- **KPIs** — total scans, today vs yesterday, uncertain rate, corrections, average confidence
+- **14-day trend** and **category mix**, plus the eight most-scanned items
+- **Scans** — paged log with category filter and search; photos appear only if Cloudinary is on
+- **Feedback** — every 👎 as predicted → corrected, which is the list to read before
+  touching prompts or the taxonomy
+- **Model & status** — the fastest way to answer "why is it guessing badly?"
+- **Export CSV** — scan log plus corrections, ready for a spreadsheet or a re-train set
+
+Security model, stated plainly: one shared passphrase from the environment, compared in
+constant time, exchanged for an HMAC-signed token with an expiry. Failed logins are
+throttled (8 per 10 minutes per IP). Changing the passphrase or restarting the service
+invalidates every old token. The panel cannot write, delete, or run anything.
+
+```powershell
+$env:ADMIN_PASSWORD="a long random passphrase"   # then restart the API
+start http://127.0.0.1:8000/app/admin.html
+```
 
 ## Deploy
 

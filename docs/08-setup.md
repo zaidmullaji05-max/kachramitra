@@ -209,9 +209,22 @@ Copy `backend/.env.example` to `backend/.env`. Every value has a working default
 | `CLOUDINARY_URL` | empty | `cloudinary://key:secret@cloud_name`; required with `IMAGE_STORAGE` |
 | `CLOUDINARY_FOLDER` | `kachra-mitra/scans` | Cloudinary folder |
 | `CLOUDINARY_TIMEOUT_S` | `15` | upload timeout; failures never break `/classify` |
+| `ADMIN_PASSWORD` | empty | admin panel passphrase; **empty keeps `/admin/*` returning 503** |
+| `ADMIN_TOKEN_TTL_HOURS` | `12` | how long a sign-in lasts |
 
 For Vercel + Render + Cloudinary, including CORS and free-tier caveats, see
 `docs/11-deploy.md`.
+
+### Admin panel (optional)
+
+```powershell
+$env:ADMIN_PASSWORD="a long random passphrase"
+python -m uvicorn backend.app.main:app --reload --port 8000
+start http://127.0.0.1:8000/app/admin.html
+```
+
+The panel reads the same SQLite file as `/history`, so local scans appear immediately.
+No password set means the routes answer `503` — the feature fails closed.
 
 ### Turn on the real agent (free)
 
