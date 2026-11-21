@@ -316,12 +316,14 @@ async def directions(
 async def history(request: Request, device_id: str | None = Query(None), limit: int = Query(50, ge=1, le=200)):
     st = request.app.state
     user = current_user(request)
-    # Signed-in users see their own scans (device_id optional). Guests need their device id.
-    owner = user["id"] if user else device_id
-    if not owner:
-        raise HTTPException(status_code=400, detail="sign in or provide device_id")
-    scans = db.list_scans(st.settings, None if user else device_id, limit, user_id=owner)
-    summary = db.scan_summary(st.settings, device_id, user_id=owner)
+    if user:
+        scans = db.list_scans(st.settings, None, limit, user_id=user["id"])
+        summary = db.scan_summary(st.settings, None, user_id=user["id"])
+    else:
+        if not device_id:
+            raise HTTPException(status_code=400, detail="sign in or provide device_id")
+        scans = db.list_scans(st.settings, device_id, limit)
+        summary = db.scan_summary(st.settings, device_id)
     return HistoryResponse(
         scans=[
             {

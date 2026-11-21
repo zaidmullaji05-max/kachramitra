@@ -27,13 +27,14 @@ import threading
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Iterator
+from typing import TYPE_CHECKING, Any, Iterator, Union
 from urllib.parse import urlparse
 
 if TYPE_CHECKING:  # pragma: no cover - typing only, avoids a config import cycle
     from .config import Settings
-
-Target = Path | str | "Settings"
+    Target = Union[Path, str, Settings]
+else:
+    Target = Union[Path, str]
 
 # --------------------------------------------------------------------------- schemas
 # Two schemas instead of one translated schema: the differences are 4 lines, and reading
