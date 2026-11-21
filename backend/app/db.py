@@ -523,7 +523,7 @@ def admin_stats(target: Target, days: int = 14) -> dict[str, Any]:
         top_items = con.execute(
             """SELECT item, category, COUNT(*) AS n, AVG(confidence) AS avg_conf,
                       SUM(uncertain) AS uncertain
-               FROM scans GROUP BY item, category ORDER BY n DESC LIMIT 8"""
+               FROM scans GROUP BY item ORDER BY n DESC LIMIT 8"""
         ).fetchall()
 
         # Daily trend, oldest first, with zero-filled gaps so the chart never lies.
