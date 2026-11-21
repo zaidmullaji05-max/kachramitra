@@ -528,6 +528,110 @@
     }
   }
 
+  // ---------------------------------------------------------------- auth
+  function setAuth(token, user) {
+    state.auth = { token, user };
+    localStorage.setItem("waste.auth", JSON.stringify({ token, user }));
+    refreshAuthUI();
+  }
+
+  function clearAuth() {
+    state.auth = null;
+    localStorage.removeItem("waste.auth");
+    refreshAuthUI();
+  }
+
+  async function restoreAuth() {
+    const raw = localStorage.getItem("waste.auth");
+    if (!raw) return;
+    let parsed;
+    try { parsed = JSON.parse(raw); } catch { clearAuth(); return; }
+    if (!parsed || !parsed.token) { clearAuth(); return; }
+    state.auth = parsed;
+    refreshAuthUI();
+    try {
+      const me = await api("/auth/me", {}, 10000);
+      state.auth.user = me.user;
+      localStorage.setItem("waste.auth", JSON.stringify(state.auth));
+      refreshAuthUI();
+    } catch {
+      clearAuth();
+    }
+  }
+
+  function refreshAuthUI() {
+    const signedIn = !!state.auth;
+    const btn = $("#account-btn");
+    if (btn) {
+      btn.textContent = signedIn ? t("auth.logout") : t("auth.login");
+      btn.dataset.i18n = signedIn ? "auth.logout" : "auth.login";
+    }
+    const adminLink = $("#auth-admin");
+    if (adminLink) adminLink.classList.toggle("hidden", !(signedIn && state.auth.user && state.auth.user.is_admin));
+  }
+
+  function openAuth() {
+    $("#auth-dialog").classList.remove("hidden");
+    $("#auth-dialog").setAttribute("aria-hidden", "false");
+    $("#auth-error").classList.add("hidden");
+  }
+
+  function closeAuth() {
+    $("#auth-dialog").classList.add("hidden");
+    $("#auth-dialog").setAttribute("aria-hidden", "true");
+  }
+
+  function toggleAuthMode() {
+    state.authMode = state.authMode === "in" ? "up" : "in";
+    const nameBox = $("#auth-name");
+    const nameLabel = $("#auth-name-label");
+    const submit = $("#auth-submit");
+    const switchBtn = $("#auth-switch");
+    const title = $("#auth-title");
+    const isUp = state.authMode === "up";
+    if (nameBox) nameBox.style.display = isUp ? "" : "none";
+    if (nameLabel) nameLabel.style.display = isUp ? "" : "none";
+    if (submit) submit.textContent = t(isUp ? "auth.signup" : "auth.login");
+    if (switchBtn) switchBtn.textContent = t(isUp ? "auth.have" : "auth.need");
+    if (title) title.textContent = t(isUp ? "auth.titleUp" : "auth.titleIn");
+    $("#auth-error").classList.add("hidden");
+  }
+
+  async function submitAuth(event) {
+    event.preventDefault();
+    const btn = $("#auth-submit");
+    const error = $("#auth-error");
+    const email = $("#auth-email").value.trim();
+    const password = $("#auth-password").value;
+    const name = $("#auth-name").value.trim();
+    btn.disabled = true;
+    error.classList.add("hidden");
+    try {
+      const path = state.authMode === "up" ? "/auth/signup" : "/auth/login";
+      const body = { email, password, ...(state.authMode === "up" ? { name } : {}) };
+      const res = await api(path, { method: "POST", body }, 20000);
+      setAuth(res.token, res.user);
+      closeAuth();
+      toast(signedInText());
+    } catch (err) {
+      error.textContent = err.message || t("errGeneric");
+      error.classList.remove("hidden");
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  function signedInText() {
+    return state.auth && state.auth.user
+      ? t("auth.accountLine", { name: state.auth.user.name || state.auth.user.email })
+      : t("auth.signedIn");
+  }
+
+  async function handleAuthClick() {
+    if (state.auth) { clearAuth(); return; }
+    openAuth();
+  }
+
   // ---------------------------------------------------------------- i18n apply
   function applyI18n() {
     document.documentElement.lang = state.lang;
@@ -1292,6 +1396,11 @@
     });
     $("#history-refresh").addEventListener("click", () => { state.historyLoaded = false; loadHistory(); });
 
+    $("#account-btn").addEventListener("click", handleAuthClick);
+    $("#auth-close").addEventListener("click", closeAuth);
+    $("#auth-switch").addEventListener("click", toggleAuthMode);
+    $("#auth-form").addEventListener("submit", submitAuth);
+
     window.addEventListener("hashchange", () => {
       const name = location.hash.replace("#", "");
       if (["scan", "chat", "map", "history"].includes(name)) showTab(name, { updateHash: false });
@@ -1302,7 +1411,7 @@
     applyI18n();
     bind();
     renderGreeting();
-    restoreSession();
+    restoreAuth();
     wakeServer();
     setInterval(() => {
       if (document.visibilityState === "visible") wakeServer();

@@ -65,7 +65,6 @@ CREATE TABLE IF NOT EXISTS scans (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_scans_device ON scans(device_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_scans_user ON scans(user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS feedback (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -119,7 +118,6 @@ CREATE TABLE IF NOT EXISTS scans (
     created_at TEXT NOT NULL
 );
 CREATE INDEX IF NOT EXISTS idx_scans_device ON scans(device_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_scans_user ON scans(user_id, created_at DESC);
 
 CREATE TABLE IF NOT EXISTS feedback (
     id BIGSERIAL PRIMARY KEY,
@@ -176,7 +174,7 @@ class Conn:
     def execute(self, sql: str, params: Any = ()):
         if self.postgres:
             sql = sql.replace("?", "%s")
-        return self._con.execute(sql, params if params else None)
+        return self._con.execute(sql, params)
 
     def executemany(self, sql: str, seq: Any):
         if self.postgres:
@@ -261,13 +259,23 @@ def init_db(target: Target) -> None:
             # Idempotent migrations for databases created by an older version.
             con.execute("ALTER TABLE scans ADD COLUMN IF NOT EXISTS user_id TEXT")
             con.execute("ALTER TABLE scans ADD COLUMN IF NOT EXISTS image_url TEXT")
+            con.execute(
+                "CREATE INDEX IF NOT EXISTS idx_scans_user "
+                "ON scans(user_id, created_at DESC)"
+            )
         else:
             columns = {r["name"] for r in con.execute("PRAGMA table_info(scans)")}
             if "image_url" not in columns:
                 con.execute("ALTER TABLE scans ADD COLUMN image_url TEXT")
             if "user_id" not in columns:
                 con.execute("ALTER TABLE scans ADD COLUMN user_id TEXT")
-            con.execute("CREATE INDEX IF NOT EXISTS idx_scans_user ON scans(user_id, created_at DESC)")
+            # Re-read: the ALTER above may have just added user_id.
+            columns = {r["name"] for r in con.execute("PRAGMA table_info(scans)")}
+            if "user_id" in columns:
+                con.execute(
+                    "CREATE INDEX IF NOT EXISTS idx_scans_user "
+                    "ON scans(user_id, created_at DESC)"
+                )
 
 
 def database_info(target: Target) -> dict[str, Any]:

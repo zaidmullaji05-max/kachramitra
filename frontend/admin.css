@@ -183,3 +183,17 @@
 
 /* ------------------------------------------------------------------ states */
 .admin-loading { color: var(--muted); font-size: .85rem; padding: 18px 0; }
+
+/* users / actions column */
+.actions { width: 56px; text-align: center; }
+.center { text-align: center; }
+.admin-table .icon-btn {
+  background: var(--card);
+  border: 1px solid var(--line);
+  color: var(--danger);
+  width: 26px; height: 26px; border-radius: 8px; font-size: 1rem; line-height: 1;
+  padding: 0; display: inline-flex; align-items: center; justify-content: center;
+  cursor: pointer;
+}
+.admin-table .icon-btn:hover { background: var(--danger-soft); border-color: var(--danger); }
+.admin-table .icon-btn:disabled { opacity: .45; cursor: not-allowed; }

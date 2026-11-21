@@ -15,7 +15,7 @@
     .replace(/\/$/, "");
 
   const TOKEN_KEY = "waste.adminToken";
-  const state = { token: localStorage.getItem(TOKEN_KEY) || "", scansOffset: 0, fbOffset: 0, view: "scans" };
+  const state = { token: localStorage.getItem(TOKEN_KEY) || "", scansOffset: 0, fbOffset: 0, usersOffset: 0, view: "scans" };
 
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -169,9 +169,13 @@
           <td>${catPill(s.category)}</td>
           <td class="num">${pct(s.confidence, 0)}</td>
           <td class="mono">${esc(s.device_id || "–")}</td>
+          <td class="mono">${esc(s.user_email || "guest")}</td>
           <td>${s.image_url ? `<a href="${esc(s.image_url)}" target="_blank" rel="noopener">open</a>` : '<span class="muted">–</span>'}</td>
+          <td class="num center actions">
+            <button class="icon-btn" data-act="remove-scan" data-id="${esc(s.id)}" title="Delete this scan">✕</button>
+          </td>
         </tr>`).join("")
-      : `<tr><td colspan="6" class="empty">Nothing here yet.</td></tr>`;
+      : `<tr><td colspan="8" class="empty">Nothing here yet.</td></tr>`;
 
     const from = data.total ? data.offset + 1 : 0;
     const to = Math.min(data.offset + data.limit, data.total);
@@ -197,6 +201,30 @@
     $("#fb-page").textContent = `${from}–${to} of ${data.total}`;
     $("#fb-prev").disabled = data.offset <= 0;
     $("#fb-next").disabled = data.offset + data.limit >= data.total;
+  }
+
+  function renderUsers(data) {
+    $("#users-count").textContent = `${data.total} result${data.total === 1 ? "" : "s"}`;
+    $("#users-body").innerHTML = data.users.length
+      ? data.users.map((u) => `<tr>
+          <td>${esc(u.email)}</td>
+          <td>${esc(u.name || "—")}</td>
+          <td class="num">${u.scans ?? 0}</td>
+          <td class="num">${u.points ?? 0}</td>
+          <td class="mono small">${when(u.created_at)}</td>
+          <td class="center"><input type="checkbox" ${u.is_active ? "checked" : ""} data-act="toggle-active" data-id="${esc(u.id)}" ${u.id === "usr_self" ? "disabled" : ""}></td>
+          <td class="center"><input type="checkbox" ${u.is_admin ? "checked" : ""} data-act="toggle-admin" data-id="${esc(u.id)}" ${u.id === "usr_self" ? "disabled" : ""}></td>
+          <td class="num center actions">
+            <button class="icon-btn" data-act="remove-user" data-id="${esc(u.id)}" title="Remove account" ${u.id === "usr_self" ? "disabled" : ""}>✕</button>
+          </td>
+        </tr>`).join("")
+      : `<tr><td colspan="8" class="empty">No users yet.</td></tr>`;
+
+    const from = data.total ? data.offset + 1 : 0;
+    const to = Math.min(data.offset + data.limit, data.total);
+    $("#users-page").textContent = `${from}–${to} of ${data.total}`;
+    $("#users-prev").disabled = data.offset <= 0;
+    $("#users-next").disabled = data.offset + data.limit >= data.total;
   }
 
   function renderModel(m) {
@@ -259,6 +287,14 @@
     renderFeedback(await res.json());
   }
 
+  async function loadUsers() {
+    const params = new URLSearchParams({ limit: "25", offset: String(state.usersOffset) });
+    const q = $("#filter-user-q").value.trim();
+    if (q) params.set("q", q);
+    const res = await api("/admin/users?" + params.toString());
+    renderUsers(await res.json());
+  }
+
   async function loadModel() {
     const res = await api("/admin/model");
     renderModel(await res.json());
@@ -266,7 +302,7 @@
 
   async function loadAll() {
     try {
-      await Promise.all([loadStats(), loadScans(), loadFeedback(), loadModel()]);
+      await Promise.all([loadStats(), loadScans(), loadFeedback(), loadUsers(), loadModel()]);
     } catch (err) {
       if (state.token) console.error(err);
     }
@@ -295,7 +331,7 @@
       b.classList.toggle("active", on);
       b.setAttribute("aria-selected", String(on));
     });
-    ["scans", "feedback", "model"].forEach((v) => {
+    ["scans", "feedback", "users", "model"].forEach((v) => {
       $("#view-" + v).classList.toggle("hidden", v !== name);
     });
   }
@@ -323,6 +359,52 @@
   });
 
   $$(".admin-tab").forEach((b) => b.addEventListener("click", () => showView(b.dataset.view)));
+
+  // ---------------------------------------------------------------- user / scan actions
+  async function toggleUserField(userId, field, checked) {
+    await api("/admin/users/" + userId, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: checked })
+    });
+    loadUsers();
+  }
+
+  async function removeUser(userId) {
+    if (!confirm("Remove this account? Their scans stay in the log (anonymised).")) return;
+    await api("/admin/users/" + userId, { method: "DELETE" });
+    loadUsers();
+  }
+
+  async function removeScan(scanId) {
+    if (!confirm("Delete this scan from the log? This cannot be undone.")) return;
+    await api("/admin/scans/" + scanId, { method: "DELETE" });
+    loadScans();
+  }
+
+  // Event delegation for the actions columns (rows are re-rendered, so bind on the table).
+  $("#scans-body").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    if (btn.dataset.act === "remove-scan") removeScan(btn.dataset.id);
+  });
+
+  $("#users-body").addEventListener("click", (e) => {
+    const btn = e.target.closest("[data-act]");
+    if (!btn) return;
+    const userId = btn.dataset.id;
+    const checked = btn.checked;
+    if (btn.dataset.act === "toggle-active") { toggleUserField(userId, "is_active", checked); return; }
+    if (btn.dataset.act === "toggle-admin") { toggleUserField(userId, "is_admin", checked); return; }
+    if (btn.dataset.act === "remove-user") { removeUser(userId); return; }
+  });
+
+  $("#filter-user-q").addEventListener("input", () => {
+    clearTimeout(qTimer);
+    qTimer = setTimeout(() => { state.usersOffset = 0; loadUsers(); }, 300);
+  });
+  $("#users-prev").addEventListener("click", () => { state.usersOffset = Math.max(0, state.usersOffset - 25); loadUsers(); });
+  $("#users-next").addEventListener("click", () => { state.usersOffset += 25; loadUsers(); });
 
   $("#filter-category").addEventListener("change", () => { state.scansOffset = 0; loadScans(); });
   let qTimer;

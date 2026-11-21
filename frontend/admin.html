@@ -84,6 +84,7 @@
       <nav class="admin-tabs" role="tablist">
         <button class="admin-tab active" data-view="scans" role="tab" aria-selected="true">Scans</button>
         <button class="admin-tab" data-view="feedback" role="tab" aria-selected="false">Feedback</button>
+        <button class="admin-tab" data-view="users" role="tab" aria-selected="false">Users</button>
         <button class="admin-tab" data-view="model" role="tab" aria-selected="false">Model &amp; status</button>
       </nav>
 
@@ -108,7 +109,7 @@
           <div class="table-wrap">
             <table class="admin-table">
               <thead>
-                <tr><th>When</th><th>Item</th><th>Category</th><th class="num">Conf.</th><th>Device</th><th>Photo</th></tr>
+                <tr><th>When</th><th>Item</th><th>Category</th><th class="num">Conf.</th><th>Device</th><th class="num">User</th><th>Photo</th><th class="num">Actions</th></tr>
               </thead>
               <tbody id="scans-body"></tbody>
             </table>
@@ -141,6 +142,33 @@
             <button id="fb-prev" class="btn tiny ghost">← Newer</button>
             <span id="fb-page" class="muted small"></span>
             <button id="fb-next" class="btn tiny ghost">Older →</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- users -->
+      <section id="view-users" class="admin-view hidden">
+        <div class="card">
+          <div class="admin-toolbar">
+            <label class="sr-only" for="filter-user-q">Search</label>
+            <input id="filter-user-q" type="search" placeholder="Search email or name…">
+            <span id="users-count" class="muted small"></span>
+          </div>
+          <div class="table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr>
+                  <th>Email</th><th>Name</th><th class="num">Scans</th><th class="num">Eco points</th>
+                  <th class="num">Joined</th><th>Active</th><th>Admin</th><th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="users-body"></tbody>
+            </table>
+          </div>
+          <div class="admin-pager">
+            <button id="users-prev" class="btn tiny ghost">← Newer</button>
+            <span id="users-page" class="muted small"></span>
+            <button id="users-next" class="btn tiny ghost">Older →</button>
           </div>
         </div>
       </section>
