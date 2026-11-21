@@ -1,9 +1,8 @@
 /*
- * Neon Managed Better Auth client for Kachra Mitra's plain-JS frontend.
- *
- * Neon Auth exposes the signed JWT on the session as session.access_token.
- * Do not call client.getJWTToken() here: this adapter build routes that call
- * to a non-existent /get-jwt-token endpoint in the deployed project.
+ * Neon Managed Auth adapter for Kachra Mitra.
+ * The SDK manages the HttpOnly session cookie. Retrieve the short-lived JWT
+ * using the Managed Auth token endpoint as a fallback for SDK builds whose
+ * session response does not expose access_token to this plain-JS wrapper.
  */
 try {
   const { createAuthClient } = await import("https://esm.sh/@neondatabase/auth");
@@ -25,25 +24,50 @@ try {
   }
 
   function tokenFrom(payload) {
-    // Neon Managed Auth returns the JWT as session.access_token.
-    // Accept the common wrapper shapes returned by SDK versions.
-    return payload?.session?.access_token
+    return payload?.token
+      || payload?.data?.token
+      || payload?.session?.access_token
       || payload?.data?.session?.access_token
       || payload?.access_token
-      || payload?.session?.accessToken
-      || payload?.data?.session?.accessToken
+      || payload?.data?.access_token
       || null;
+  }
+
+  async function getToken(operationResult) {
+    // First use the SDK helper when it returns a token.
+    if (typeof client.getJWTToken === "function") {
+      try {
+        const sdkToken = await client.getJWTToken();
+        if (typeof sdkToken === "string" && sdkToken.length > 20) return sdkToken;
+        const nested = tokenFrom(sdkToken);
+        if (nested) return nested;
+      } catch (err) {
+        console.warn("Neon SDK JWT helper failed; trying /token endpoint:", err);
+      }
+    }
+
+    // Neon Managed Auth's token endpoint uses the existing HttpOnly session cookie.
+    const response = await fetch(`${authUrl}/token`, {
+      method: "GET",
+      credentials: "include",
+      headers: { "Accept": "application/json" },
+      cache: "no-store"
+    });
+    const body = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      const message = body?.message || body?.error || `Token endpoint returned HTTP ${response.status}`;
+      throw new Error(message);
+    }
+    const token = tokenFrom(body) || tokenFrom(operationResult);
+    if (!token) {
+      throw new Error("Neon Auth did not return a JWT. Check the browser's /token response and session cookie.");
+    }
+    return token;
   }
 
   async function currentAuthState(operationResult) {
     const currentSession = await session();
-    const token = tokenFrom(currentSession) || tokenFrom(operationResult);
-    if (!token) {
-      throw new Error(
-        "Neon Auth signed in, but its session did not include an access_token. " +
-        "Please check the Neon Auth SDK/session response before retrying."
-      );
-    }
+    const token = await getToken(operationResult);
     return { session: currentSession, token };
   }
 
