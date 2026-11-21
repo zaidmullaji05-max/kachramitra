@@ -79,7 +79,7 @@
       "auth.name": "Name",
       "auth.titleIn": "Log in",
       "auth.titleUp": "Create account",
-      "auth.blurb": "Sign in to keep your scans on your account. An admin account also opens the dashboard.",
+      "auth.blurb": "Sign in to keep your scans on your account.",
       "auth.need": "New here? Create an account",
       "auth.have": "Already have an account? Log in",
       "auth.admin": "Admin",
