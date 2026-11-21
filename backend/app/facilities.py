@@ -1,8 +1,9 @@
 """
 Facility search: category-aware, cached, provider-abstracted.
 
-FACILITY_PROVIDER=fixture  -> sample data, works offline (default; great for the demo)
+FACILITY_PROVIDER=fixture  -> sample data, works offline (explicit demo mode only)
 FACILITY_PROVIDER=overpass -> live OpenStreetMap data (free, no API key)
+FACILITY_PROVIDER=auto     -> live OpenStreetMap only; no sample-data fallback
 
 The Overpass→category mapping is a heuristic: OSM tagging in India is patchy. That is why
 the response carries `source` and the UI shows "sample data" / "OpenStreetMap" honestly.
@@ -150,15 +151,8 @@ class FacilityService:
                     "Live search failed, so these are cached places. Directions still open in Google Maps.",
                 )
 
-        if provider == "auto":
-            near = self._nearby_fixtures(lat, lng, category, limit)
-            if near:
-                return (
-                    near,
-                    "fixture",
-                    True,
-                    "No live places in this category nearby. These sample points are within 30 km.",
-                )
+        # "auto" and "overpass" are live-only modes. Never silently replace a failed
+        # live search with bundled sample coordinates; users need real disposal sites.
         return (
             [],
             "overpass",

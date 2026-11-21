@@ -128,7 +128,7 @@
       live: "Live places near you. The map is Google Maps; directions open there too.",
       noFacilities: "No collection points found nearby. Try a larger radius or check your municipal corporation helpline.",
       locating: "Finding your location…",
-      locationDenied: "Location unavailable — showing Mumbai as a demo. Allow location access and try again.",
+      locationDenied: "Your location is unavailable. Allow location access in your browser, then reload the map. No demo locations are shown.",
       demoLocation: "Showing the demo area (Mumbai).",
       historyEmpty: "No scans yet. Scan something to start.",
       loading: "Loading…",
@@ -260,7 +260,7 @@
       live: "आपके पास की लाइव जगहें। नक्शा Google Maps है, रास्ता वहीं खुलता है।",
       noFacilities: "आसपास कोई संग्रह केंद्र नहीं मिला। दायरा बढ़ाएँ या नगर निगम हेल्पलाइन देखें।",
       locating: "आपकी लोकेशन खोज रहे हैं…",
-      locationDenied: "लोकेशन उपलब्ध नहीं — डेमो के लिए मुंबई दिखा रहे हैं। लोकेशन की अनुमति दें और फिर कोशिश करें।",
+      locationDenied: "आपकी लोकेशन उपलब्ध नहीं है। ब्राउज़र में लोकेशन की अनुमति दें और मैप फिर से खोलें। डेमो लोकेशन नहीं दिखाई जाएगी।",
       demoLocation: "डेमो क्षेत्र (मुंबई) दिख रहा है।",
       historyEmpty: "अभी कोई स्कैन नहीं। शुरू करने के लिए कुछ स्कैन करें।",
       loading: "लोड हो रहा है…",
@@ -392,7 +392,7 @@
       live: "तुमच्या जवळची थेट ठिकाणे. नकाशा Google Maps आहे, मार्ग तिथे उघडतो.",
       noFacilities: "जवळ कोणतेही संकलन केंद्र सापडले नाही. परिसर वाढवा किंवा महानगरपालिका हेल्पलाइन पहा.",
       locating: "तुमचे स्थान शोधत आहोत…",
-      locationDenied: "स्थान उपलब्ध नाही — डेमोसाठी मुंबई दाखवत आहोत. स्थानाला परवानगी द्या आणि पुन्हा प्रयत्न करा.",
+      locationDenied: "तुमचे स्थान उपलब्ध नाही. ब्राउझरमध्ये स्थानाची परवानगी द्या आणि नकाशा पुन्हा उघडा. डेमो ठिकाणे दाखवली जाणार नाहीत.",
       demoLocation: "डेमो भाग (मुंबई) दाखवत आहोत.",
       historyEmpty: "अजून स्कॅन नाही. सुरुवात करण्यासाठी काहीतरी स्कॅन करा.",
       loading: "लोड होत आहे…",
@@ -1210,10 +1210,11 @@
   }
 
   async function locateAndLoad() {
-    const stu = $("#map-note");
+    const list = $("#facility-list");
+    state.geo = null;
     if (!navigator.geolocation) {
       mapNote(t("locationDenied"));
-      await loadFacilities(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
+      list.innerHTML = `<div class="card"><p class="muted">${escapeHtml(t("locationDenied"))}</p></div>`;
       return;
     }
     mapNote(t("locating"));
@@ -1223,10 +1224,11 @@
         setMapFrame(googleEmbedArea(state.geo.lat, state.geo.lng));
         await loadFacilities(state.geo.lat, state.geo.lng);
       },
-      async () => {
+      () => {
+        // Never query Mumbai or show fixed demo coordinates when location is denied.
+        state.geo = null;
         mapNote(t("locationDenied"));
-        setMapFrame(googleEmbedArea(DEFAULT_CENTER[0], DEFAULT_CENTER[1]));
-        await loadFacilities(DEFAULT_CENTER[0], DEFAULT_CENTER[1]);
+        list.innerHTML = `<div class="card"><p class="muted">${escapeHtml(t("locationDenied"))}</p></div>`;
       },
       { enableHighAccuracy: true, timeout: 12000, maximumAge: 15000 }
     );

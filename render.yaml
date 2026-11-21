@@ -29,7 +29,15 @@ services:
       - key: LLM_PROVIDER
         value: fake
       - key: FACILITY_PROVIDER
+        value: overpass
+      # Vision API keys are entered privately in the Render dashboard.
+      # Gemini is preferred when both Gemini and Groq keys are configured.
+      - key: VISION_PROVIDER
         value: auto
+      - key: GEMINI_API_KEY
+        sync: false
+      - key: GROQ_API_KEY
+        sync: false
       # Neon connection string. Render prompts for it. Leave blank to use SQLite,
       # which is wiped on every free-tier restart.
       - key: DATABASE_URL
