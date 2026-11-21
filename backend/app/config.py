@@ -36,7 +36,18 @@ class Settings(BaseSettings):
     clip_embeds_path: str = "artifacts_clip/clip_text_embeds.npz"
 
     # storage
+    # Local demo: SQLite at DB_PATH. Hosted: set DATABASE_URL to a Neon Postgres string
+    # (postgresql://user:pass@ep-xxx.region.aws.neon.tech/db?sslmode=require) and accounts
+    # survive redeploys. An empty DATABASE_URL always means SQLite.
     db_path: str = "backend/data/app.db"
+    database_url: str = ""
+
+    # user accounts
+    # AUTH_SECRET signs user tokens. If empty, ADMIN_PASSWORD is reused so a single secret
+    # can be managed; if both are empty the app falls back to an insecure dev value and
+    # /health says so. Set AUTH_SECRET on any real deployment.
+    auth_secret: str = ""
+    auth_token_ttl_hours: int = 720  # 30 days
 
     # LLM: fake | groq | gemini
     llm_provider: str = "fake"
@@ -51,8 +62,10 @@ class Settings(BaseSettings):
     vision_model: str = ""
     vision_timeout_s: float = 30.0
 
-    # facilities: fixture | overpass
-    facility_provider: str = "fixture"
+    # facilities: fixture | overpass | auto
+    # auto tries live OpenStreetMap first and falls back to the demo fixtures, so the map
+    # is never empty. Use overpass in production: fixture coordinates are sample data.
+    facility_provider: str = "auto"
     overpass_url: str = "https://overpass-api.de/api/interpreter"
     osrm_url: str = "https://router.project-osrm.org"
     facility_cache_days: int = 30
@@ -62,9 +75,11 @@ class Settings(BaseSettings):
     rate_limit_per_min: int = 30
     max_upload_mb: int = 8
 
-    # admin panel: leave ADMIN_PASSWORD empty and the whole panel stays switched off.
-    # Set it to a long passphrase on Render, then open /admin and log in with that value.
+    # admin panel: leave ADMIN_PASSWORD empty and passphrase login stays switched off.
+    # Set ADMIN_EMAIL as well to seed a real admin account in the users table (Neon or SQLite).
+    # That account signs in with email + password from the app and from the admin panel.
     admin_password: str = ""
+    admin_email: str = ""
     admin_token_ttl_hours: int = 12
 
     # image storage: opt-in, off by default (the app is image-free unless you say otherwise).
@@ -98,6 +113,19 @@ class Settings(BaseSettings):
     def db_file(self) -> Path:
         p = Path(self.db_path)
         return p if p.is_absolute() else ROOT / p
+
+    @property
+    def auth_secret_value(self) -> str:
+        """One signing secret for user tokens, with a loud, documented fallback."""
+        return (self.auth_secret or self.admin_password or "dev-only-insecure-secret").strip()
+
+    @property
+    def auth_secret_is_default(self) -> bool:
+        return not (self.auth_secret or self.admin_password)
+
+    @property
+    def accounts_ready(self) -> bool:
+        return bool(self.database_url.strip())
 
     @property
     def origins(self) -> list[str]:

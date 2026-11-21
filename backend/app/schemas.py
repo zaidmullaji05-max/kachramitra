@@ -133,6 +133,29 @@ class FeedbackRequest(BaseModel):
     comment: str | None = Field(default=None, max_length=500)
 
 
+class SignupRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+    name: str = Field(default="", max_length=80)
+
+
+class LoginRequest(BaseModel):
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=128)
+
+
+class ProfileUpdate(BaseModel):
+    name: str | None = Field(default=None, max_length=80)
+    current_password: str | None = Field(default=None, max_length=128)
+    new_password: str | None = Field(default=None, max_length=128)
+
+
+class AdminUserUpdate(BaseModel):
+    name: str | None = Field(default=None, max_length=80)
+    is_active: bool | None = None
+    is_admin: bool | None = None
+
+
 class DirectionsResponse(BaseModel):
     facility_id: str
     distance_m: float | None = None

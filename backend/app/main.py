@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from . import db, media, safety, vision
 from . import VERSION
 from .admin import router as admin_router
+from .users import current_user, ensure_admin, router as auth_router
 from .agent import STORE as SESSIONS
 from .agent import run as run_agent
 from .classifier import ClassifierService
@@ -46,15 +47,22 @@ LANGS = {"en", "hi", "mr"}
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    db.init_db(settings.db_file)
+    db.init_db(settings)
     app.state.settings = settings
+    try:
+        ensure_admin(settings)
+    except Exception:
+        log.exception("could not seed the admin account")
     app.state.classifier = ClassifierService(settings)
     app.state.facilities = FacilityService(settings)
-    log.info("ready: classifier=%s llm=%s facilities=%s",
+    info = db.database_info(settings)
+    log.info("ready: classifier=%s llm=%s facilities=%s db=%s",
              app.state.classifier.ready,
              (getattr(get_provider(settings), "name", "rules")),
-             settings.facility_provider)
+             settings.facility_provider,
+             info.get("backend"))
     yield
+    db.close_pools()
 
 
 app = FastAPI(
@@ -74,6 +82,7 @@ app.add_middleware(
 )
 
 app.include_router(admin_router)
+app.include_router(auth_router)
 
 # --------------------------------------------------------------------------- rate limit
 _hits: dict[str, deque[float]] = defaultdict(deque)
@@ -118,6 +127,8 @@ async def health(request: Request):
         "facilities_provider": st.settings.facility_provider,
         "confidence_threshold": st.settings.confidence_threshold,
         "image_storage": st.settings.image_storage_ready,
+        "accounts": True,
+        "database": db.database_info(st.settings),
         "knowledge": get_knowledge().stats(),
     }
 
@@ -193,16 +204,18 @@ async def classify(
 
     scan_id = f"scn_{uuid.uuid4().hex[:16]}"
     dev = device_id or request.headers.get("x-device-id") or "anonymous"
+    user = current_user(request)
 
     # Optional Cloudinary upload. It is off by default, and a failure returns None
     # instead of failing the scan. `to_thread` keeps the blocking upload off the loop.
     image_url = await asyncio.to_thread(media.upload_scan_image, img, scan_id, st.settings)
 
     db.insert_scan(
-        st.settings.db_file,
+        st.settings,
         {
             "id": scan_id,
             "device_id": dev,
+            "user_id": user["id"] if user else None,
             "item": result["item"],
             "category": result["category"],
             "confidence": result["confidence"],
@@ -302,8 +315,10 @@ async def directions(
 @app.get("/history", response_model=HistoryResponse)
 async def history(request: Request, device_id: str = Query(..., min_length=1), limit: int = Query(50, ge=1, le=200)):
     st = request.app.state
-    scans = db.list_scans(st.settings.db_file, device_id, limit)
-    summary = db.scan_summary(st.settings.db_file, device_id)
+    user = current_user(request)
+    owner = user["id"] if user else None
+    scans = db.list_scans(st.settings, device_id, limit, user_id=owner)
+    summary = db.scan_summary(st.settings, device_id, user_id=owner)
     return HistoryResponse(
         scans=[
             {
@@ -328,7 +343,7 @@ async def history(request: Request, device_id: str = Query(..., min_length=1), l
 @app.post("/feedback", dependencies=[Depends(rate_limit)])
 async def feedback(req: FeedbackRequest, request: Request):
     db.insert_feedback(
-        request.app.state.settings.db_file,
+        request.app.state.settings,
         {
             "scan_id": req.scan_id,
             "correct_item": req.correct_item,

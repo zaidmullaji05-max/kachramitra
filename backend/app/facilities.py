@@ -43,6 +43,19 @@ out center tags;
 YES = {"yes", "true", "1", "only"}
 
 
+def google_directions_url(dest_lat: float, dest_lng: float,
+                          origin_lat: float | None = None,
+                          origin_lng: float | None = None) -> str:
+    """A Google Maps directions link. With an origin, the route is already drawn."""
+    url = (
+        "https://www.google.com/maps/dir/?api=1"
+        f"&destination={dest_lat},{dest_lng}&travelmode=driving"
+    )
+    if origin_lat is not None and origin_lng is not None:
+        url += f"&origin={origin_lat},{origin_lng}"
+    return url
+
+
 def haversine_m(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     r = 6371000.0
     p1, p2 = math.radians(lat1), math.radians(lat2)
@@ -105,12 +118,15 @@ class FacilityService:
     # ------------------------------------------------------------------ public
     async def search(self, lat: float, lng: float, category: str, radius_m: int = 5000,
                      limit: int = 20, refresh: bool = False) -> tuple[list[Facility], str, bool, str | None]:
-        if self.settings.facility_provider == "fixture" or not self.fixtures:
+        provider = (self.settings.facility_provider or "auto").strip().lower()
+        # Only an explicit fixture mode shows the bundled sample points. "auto" and
+        # "overpass" ask OpenStreetMap for places around the user's real coordinates.
+        if provider == "fixture":
             return self._from_fixtures(lat, lng, category, limit)
 
         d = radius_m / 111_000.0
         if not refresh:
-            cached = db.cached_facilities(self.settings.db_file, category, lat, lng, d, d,
+            cached = db.cached_facilities(self.settings, category, lat, lng, d, d,
                                           self.settings.facility_cache_days)
             if cached:
                 return self._rank(cached, lat, lng, limit)[:limit], "cache", False, None
@@ -119,26 +135,48 @@ class FacilityService:
             fetched = await self._overpass(lat, lng, radius_m)
             rows = [f for f in fetched if category in f["_cats"]]
             if rows:
-                db.cache_facilities(self.settings.db_file, rows, db.now_iso())
-            return self._rank(rows, lat, lng, limit)[:limit], "overpass", False, None
+                db.cache_facilities(self.settings, rows, db.now_iso())
+                ranked = self._rank(rows, lat, lng, limit)[:limit]
+                note = "Live OpenStreetMap places near you. Directions open in Google Maps."
+                return ranked, "overpass", False, note
         except (httpx.HTTPError, ValueError, KeyError) as e:
             log.warning("overpass failed: %s", e)
-            stale = db.cached_facilities(self.settings.db_file, category, lat, lng, d * 4, d * 4, 3650)
+            stale = db.cached_facilities(self.settings, category, lat, lng, d * 4, d * 4, 3650)
             if stale:
-                return self._rank(stale, lat, lng, limit)[:limit], "cache", True, "live search failed; showing cached"
-            return [], "cache", True, "facility search is temporarily unavailable"
+                return (
+                    self._rank(stale, lat, lng, limit)[:limit],
+                    "cache",
+                    True,
+                    "Live search failed, so these are cached places. Directions still open in Google Maps.",
+                )
+
+        if provider == "auto":
+            near = self._nearby_fixtures(lat, lng, category, limit)
+            if near:
+                return (
+                    near,
+                    "fixture",
+                    True,
+                    "No live places in this category nearby. These sample points are within 30 km.",
+                )
+        return (
+            [],
+            "overpass",
+            False,
+            "No mapped collection points nearby. Use Open in Google Maps for live directions.",
+        )
 
     async def get_by_id(self, facility_id: str) -> dict[str, Any] | None:
         for f in self.fixtures:
             if f["id"] == facility_id:
                 return f
-        with db.connect(self.settings.db_file) as con:
+        with db.connect(self.settings) as con:
             row = con.execute("SELECT * FROM facilities WHERE id = ?", (facility_id,)).fetchone()
         return dict(row) if row else None
 
     async def directions(self, facility: dict[str, Any], lat: float | None, lng: float | None) -> DirectionsResponse:
         flat, flng = float(facility["lat"]), float(facility["lng"])
-        url = f"https://www.google.com/maps/dir/?api=1&destination={flat},{flng}&travelmode=driving"
+        url = google_directions_url(flat, flng, lat, lng)
         if lat is None or lng is None:
             return DirectionsResponse(facility_id=facility["id"], google_maps_url=url)
 
@@ -170,6 +208,11 @@ class FacilityService:
             return DirectionsResponse(facility_id=facility["id"], google_maps_url=url)
 
     # ------------------------------------------------------------------ internals
+    def _nearby_fixtures(self, lat, lng, category, limit, max_m: int = 30_000):
+        """Sample points only count when they are actually near the user."""
+        ranked = self._from_fixtures(lat, lng, category, limit)[0]
+        return [f for f in ranked if (f.distance_m or 10**9) <= max_m]
+
     def _from_fixtures(self, lat, lng, category, limit):
         rows = [f for f in self.fixtures if category in f.get("categories", [f.get("category")])]
         if not rows:  # demo data is a fixed city; never show an empty map in a demo

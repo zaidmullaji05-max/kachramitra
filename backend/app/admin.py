@@ -1,21 +1,15 @@
-"""Admin API: one password, short-lived signed tokens, read-only analytics.
+"""Admin API: passphrase or an admin user account, short-lived signed tokens.
 
-Why it looks like this
-----------------------
-The project has no user accounts and no database of admins. Adding one would mean storing
-passwords, resets, and sessions — too much for a student project that must stay deployable
-on a free tier.
+Two ways in
+-----------
+* `ADMIN_PASSWORD` alone still signs a passphrase token. That path stays so a lab machine
+  with no database of people can open the panel.
+* An account with `is_admin` (seeded from `ADMIN_EMAIL` + `ADMIN_PASSWORD`, or promoted
+  in the panel) signs in with email and password. The token is the same shape the app
+  uses for ordinary users; every request re-loads the row and checks `is_admin`.
 
-Instead: `ADMIN_PASSWORD` is a single passphrase kept in the host's environment. Logging
-in returns a token that is *signed* with that passphrase and carries its own expiry, so the
-server keeps no session state. Restart the service, change the password, or delete the
-browser's localStorage and every old token stops working.
-
-Security notes (be honest about them):
-* The password is compared with `hmac.compare_digest`, so timing does not leak it.
-* Failed logins are throttled per IP.
-* Empty `ADMIN_PASSWORD` disables the API entirely — it fails closed, not open.
-* The panel is read-only. It cannot change a label, delete a scan, or run shell commands.
+The panel can list, edit and remove users. Scans of a removed user stay, with the
+account link cleared, so totals do not quietly shrink.
 """
 from __future__ import annotations
 
@@ -28,7 +22,8 @@ from collections import defaultdict, deque
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from . import db
+from . import db, security
+from .schemas import AdminUserUpdate
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
@@ -63,29 +58,40 @@ def _password(request: Request) -> str:
     return (request.app.state.settings.admin_password or "").strip()
 
 
+def _admin_from_user_token(request: Request, token: str) -> dict | None:
+    """An app login token is accepted here only when that account is an active admin."""
+    if not token or token.count(".") != 2:
+        return None
+    settings = request.app.state.settings
+    claims = security.read_user_token(token, settings.auth_secret_value)
+    if not claims:
+        return None
+    user = db.get_user(settings, claims["user_id"])
+    if not user or not user["is_active"] or not user["is_admin"]:
+        return None
+    return user
+
+
 async def require_admin(request: Request) -> None:
-    """FastAPI dependency: 401 unless a valid `X-Admin-Token` header is present."""
+    """FastAPI dependency: passphrase token or an active admin user's token."""
+    token = request.headers.get("x-admin-token", "")
     secret = _password(request)
+    if secret and token_valid(token, secret):
+        return
+    if _admin_from_user_token(request, token):
+        return
     if not secret:
         raise HTTPException(
             status_code=503,
             detail="admin panel is off: set ADMIN_PASSWORD on the server to enable it",
         )
-    token = request.headers.get("x-admin-token", "")
-    if not token_valid(token, secret):
-        raise HTTPException(status_code=401, detail="invalid or expired admin token")
+    raise HTTPException(status_code=401, detail="invalid or expired admin token")
 
 
 # --------------------------------------------------------------------------- auth
 @router.post("/login")
 async def login(request: Request):
     secret = _password(request)
-    if not secret:
-        raise HTTPException(
-            status_code=503,
-            detail="admin panel is off: set ADMIN_PASSWORD on the server to enable it",
-        )
-
     ip = request.client.host if request.client else "unknown"
     now = time.monotonic()
     q = _failures[ip]
@@ -98,8 +104,35 @@ async def login(request: Request):
         body = await request.json()
     except Exception:  # noqa: BLE001 - a junk body is just a bad password
         body = {}
-    supplied = str((body or {}).get("password") or "")
+    body = body or {}
+    supplied = str(body.get("password") or "")
+    email = str(body.get("email") or "").strip().lower()
 
+    # Email present → this is a user-account login, not the shared passphrase.
+    if email:
+        from .users import normalise_email
+
+        user = db.get_user_by_email(request.app.state.settings, normalise_email(email))
+        if not user or not security.verify_password(supplied, user["password_hash"]):
+            q.append(now)
+            raise HTTPException(status_code=401, detail="wrong email or password")
+        if not user["is_active"]:
+            raise HTTPException(status_code=403, detail="this account has been disabled")
+        if not user["is_admin"]:
+            raise HTTPException(status_code=403, detail="this account is not an admin")
+        q.clear()
+        db.touch_login(request.app.state.settings, user["id"], db.now_iso())
+        ttl = int(request.app.state.settings.admin_token_ttl_hours) * 3600
+        out = security.issue_user_token(request.app.state.settings.auth_secret_value, user["id"], ttl)
+        out["ttl_s"] = ttl
+        out["user"] = db.public_user(user)
+        return out
+
+    if not secret:
+        raise HTTPException(
+            status_code=503,
+            detail="admin panel is off: set ADMIN_PASSWORD on the server to enable it",
+        )
     if not hmac.compare_digest(supplied, secret):
         q.append(now)
         raise HTTPException(status_code=401, detail="wrong password")
@@ -121,7 +154,7 @@ async def session(request: Request):
 @router.get("/stats", dependencies=[Depends(require_admin)])
 async def stats(request: Request, days: int = 14):
     days = max(1, min(days, 90))
-    return db.admin_stats(request.app.state.settings.db_file, days=days)
+    return db.admin_stats(request.app.state.settings, days=days)
 
 
 @router.get("/scans", dependencies=[Depends(require_admin)])
@@ -134,7 +167,7 @@ async def scans(
 ):
     limit = max(1, min(limit, 200))
     return db.admin_scans(
-        request.app.state.settings.db_file,
+        request.app.state.settings,
         limit=limit,
         offset=max(0, offset),
         category=category or None,
@@ -146,8 +179,45 @@ async def scans(
 async def feedback(request: Request, limit: int = 100, offset: int = 0):
     limit = max(1, min(limit, 200))
     return db.admin_feedback(
-        request.app.state.settings.db_file, limit=limit, offset=max(0, offset)
+        request.app.state.settings, limit=limit, offset=max(0, offset)
     )
+
+
+@router.get("/users", dependencies=[Depends(require_admin)])
+async def users(request: Request, limit: int = 50, offset: int = 0, q: str | None = None):
+    limit = max(1, min(limit, 200))
+    return db.admin_users(
+        request.app.state.settings, limit=limit, offset=max(0, offset), query=q or None
+    )
+
+
+@router.patch("/users/{user_id}", dependencies=[Depends(require_admin)])
+async def update_user(user_id: str, body: AdminUserUpdate, request: Request):
+    settings = request.app.state.settings
+    existing = db.get_user(settings, user_id)
+    if not existing:
+        raise HTTPException(status_code=404, detail="user not found")
+    fields: dict = {}
+    if body.name is not None:
+        name = body.name.strip()
+        if not name:
+            raise HTTPException(status_code=400, detail="name cannot be empty")
+        fields["name"] = name[:80]
+    if body.is_active is not None:
+        fields["is_active"] = int(body.is_active)
+    if body.is_admin is not None:
+        fields["is_admin"] = int(body.is_admin)
+    updated = db.update_user(settings, user_id, fields) if fields else existing
+    return {"user": db.public_user(updated)}
+
+
+@router.delete("/users/{user_id}", dependencies=[Depends(require_admin)])
+async def remove_user(user_id: str, request: Request):
+    settings = request.app.state.settings
+    if not db.get_user(settings, user_id):
+        raise HTTPException(status_code=404, detail="user not found")
+    db.delete_user(settings, user_id)
+    return {"ok": True}
 
 
 @router.get("/export.csv", dependencies=[Depends(require_admin)])
@@ -155,11 +225,11 @@ async def export_csv(request: Request):
     """Download every scan with its correction, ready for a spreadsheet or a re-train set."""
     from fastapi.responses import Response
 
-    rows = db.admin_csv_rows(request.app.state.settings.db_file)
+    rows = db.admin_csv_rows(request.app.state.settings)
     buf = io.StringIO()
     fields = [
         "created_at", "scan_id", "item", "category", "confidence", "uncertain",
-        "device_id", "correct_item", "correct_category", "comment",
+        "device_id", "user_id", "user_email", "correct_item", "correct_category", "comment",
     ]
     writer = csv.DictWriter(buf, fieldnames=fields, extrasaction="ignore")
     writer.writeheader()
@@ -195,6 +265,7 @@ async def model_info(request: Request):
         "confidence_threshold": st.settings.confidence_threshold,
         "facilities_provider": st.settings.facility_provider,
         "image_storage": st.settings.image_storage_ready,
+        "database": db.database_info(st.settings),
         "taxonomy": {
             "categories": len(st.classifier.taxonomy.classes),
             "items": len(st.classifier.taxonomy.items),

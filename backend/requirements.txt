@@ -11,6 +11,8 @@ pillow>=10.2
 pyyaml>=6.0
 onnxruntime>=1.18           # if unavailable, set CLASSIFIER_ENABLED=false (demo mode)
 cloudinary>=1.40            # optional image storage (IMAGE_STORAGE=true)
+psycopg[binary]>=3.2        # Neon / Postgres when DATABASE_URL is set
+psycopg_pool>=3.2
 
 # dev / test only
 pytest>=8.0
