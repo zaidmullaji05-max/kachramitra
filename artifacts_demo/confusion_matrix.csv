@@ -1,0 +1,7 @@
+true\pred,cardboard,glass_container,metal_scrap,mixed_trash,paper,plastic_bottle
+cardboard,7,0,0,0,0,0
+glass_container,0,6,0,0,0,0
+metal_scrap,0,0,6,0,0,0
+mixed_trash,0,0,0,2,0,1
+paper,0,0,0,0,6,0
+plastic_bottle,0,0,0,0,0,6
