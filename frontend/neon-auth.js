@@ -1,8 +1,9 @@
 /*
- * Neon Managed Auth adapter for Kachra Mitra.
- * The SDK manages the HttpOnly session cookie. Retrieve the short-lived JWT
- * using the Managed Auth token endpoint as a fallback for SDK builds whose
- * session response does not expose access_token to this plain-JS wrapper.
+ * Neon Managed Better Auth adapter for Kachra Mitra.
+ *
+ * Managed Auth returns the application JWT in the `set-auth-jwt` response
+ * header from GET /get-session. The HttpOnly session cookie is sent by the
+ * browser; JavaScript must never read or copy the cookie itself.
  */
 try {
   const { createAuthClient } = await import("https://esm.sh/@neondatabase/auth");
@@ -19,69 +20,44 @@ try {
     return result?.data ?? result;
   }
 
-  async function session() {
-    return unwrap(await client.getSession());
-  }
-
-  function tokenFrom(payload) {
-    return payload?.token
-      || payload?.data?.token
-      || payload?.session?.access_token
-      || payload?.data?.session?.access_token
-      || payload?.access_token
-      || payload?.data?.access_token
-      || null;
-  }
-
-  async function getToken(operationResult) {
-    // First use the SDK helper when it returns a token.
-    if (typeof client.getJWTToken === "function") {
-      try {
-        const sdkToken = await client.getJWTToken();
-        if (typeof sdkToken === "string" && sdkToken.length > 20) return sdkToken;
-        const nested = tokenFrom(sdkToken);
-        if (nested) return nested;
-      } catch (err) {
-        console.warn("Neon SDK JWT helper failed; trying /token endpoint:", err);
-      }
-    }
-
-    // Neon Managed Auth's token endpoint uses the existing HttpOnly session cookie.
-    const response = await fetch(`${authUrl}/token`, {
+  async function readSessionAndJwt() {
+    // GET /get-session both returns session details and issues the JWT header.
+    // credentials: include sends the HttpOnly Neon session cookie.
+    const response = await fetch(`${authUrl}/get-session`, {
       method: "GET",
       credentials: "include",
       headers: { "Accept": "application/json" },
       cache: "no-store"
     });
-    const body = await response.json().catch(() => ({}));
+
+    const body = await response.json().catch(() => null);
     if (!response.ok) {
-      const message = body?.message || body?.error || `Token endpoint returned HTTP ${response.status}`;
+      const message = body?.message || body?.error || `Neon session request failed (HTTP ${response.status})`;
       throw new Error(message);
     }
-    const token = tokenFrom(body) || tokenFrom(operationResult);
-    if (!token) {
-      throw new Error("Neon Auth did not return a JWT. Check the browser's /token response and session cookie.");
-    }
-    return token;
-  }
 
-  async function currentAuthState(operationResult) {
-    const currentSession = await session();
-    const token = await getToken(operationResult);
-    return { session: currentSession, token };
+    const token = response.headers.get("set-auth-jwt")
+      || response.headers.get("Set-Auth-Jwt");
+    if (!token) {
+      throw new Error(
+        "Neon Auth returned the session but did not expose the Set-Auth-Jwt response header. " +
+        "Check that the Auth service exposes this header to the Vercel origin."
+      );
+    }
+    return { session: body, token };
   }
 
   window.KMNeonAuth = {
     async signUp({ email, password, name }) {
       const result = unwrap(await client.signUp.email({ email, password, name }));
-      return { result, ...(await currentAuthState(result)) };
+      return { result, ...(await readSessionAndJwt()) };
     },
     async signIn({ email, password }) {
       const result = unwrap(await client.signIn.email({ email, password }));
-      return { result, ...(await currentAuthState(result)) };
+      return { result, ...(await readSessionAndJwt()) };
     },
     async getSession() {
-      return currentAuthState(null);
+      return readSessionAndJwt();
     },
     async signOut() {
       await client.signOut();
