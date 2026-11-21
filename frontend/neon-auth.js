@@ -1,10 +1,13 @@
 /*
- * Neon Managed Better Auth client for Kachra Mitra's existing plain-JS frontend.
- * The SDK is loaded as an ESM dependency; the app design and HTML forms stay unchanged.
+ * Neon Managed Better Auth client for Kachra Mitra's plain-JS frontend.
+ *
+ * Neon Auth exposes the signed JWT on the session as session.access_token.
+ * Do not call client.getJWTToken() here: this adapter build routes that call
+ * to a non-existent /get-jwt-token endpoint in the deployed project.
  */
 try {
   const { createAuthClient } = await import("https://esm.sh/@neondatabase/auth");
-  const authUrl = (window.WASTE_NEON_AUTH_URL || "").trim();
+  const authUrl = (window.WASTE_NEON_AUTH_URL || "").trim().replace(/\/+$/, "");
   if (!authUrl) throw new Error("Neon Auth URL is not configured");
 
   const client = createAuthClient(authUrl);
@@ -21,22 +24,40 @@ try {
     return unwrap(await client.getSession());
   }
 
-  async function token() {
-    const value = await client.getJWTToken();
-    return value || null;
+  function tokenFrom(payload) {
+    // Neon Managed Auth returns the JWT as session.access_token.
+    // Accept the common wrapper shapes returned by SDK versions.
+    return payload?.session?.access_token
+      || payload?.data?.session?.access_token
+      || payload?.access_token
+      || payload?.session?.accessToken
+      || payload?.data?.session?.accessToken
+      || null;
+  }
+
+  async function currentAuthState(operationResult) {
+    const currentSession = await session();
+    const token = tokenFrom(currentSession) || tokenFrom(operationResult);
+    if (!token) {
+      throw new Error(
+        "Neon Auth signed in, but its session did not include an access_token. " +
+        "Please check the Neon Auth SDK/session response before retrying."
+      );
+    }
+    return { session: currentSession, token };
   }
 
   window.KMNeonAuth = {
     async signUp({ email, password, name }) {
       const result = unwrap(await client.signUp.email({ email, password, name }));
-      return { result, session: await session(), token: await token() };
+      return { result, ...(await currentAuthState(result)) };
     },
     async signIn({ email, password }) {
       const result = unwrap(await client.signIn.email({ email, password }));
-      return { result, session: await session(), token: await token() };
+      return { result, ...(await currentAuthState(result)) };
     },
     async getSession() {
-      return { session: await session(), token: await token() };
+      return currentAuthState(null);
     },
     async signOut() {
       await client.signOut();
