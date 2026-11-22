@@ -191,10 +191,13 @@ class GeminiProvider(OpenAICompatProvider):
 
             except LLMError as error:
 
-                retryable = any(
-                    code in str(error)
-                    for code in retryable_codes
-                )
+               error_text = str(error).lower()
+
+retryable = (
+    any(code in error_text for code in retryable_codes)
+    or "timeout" in error_text
+    or "timed out" in error_text
+)
 
                 if not retryable or attempt == 2:
                     log.error(
