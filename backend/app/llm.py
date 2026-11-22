@@ -154,6 +154,7 @@ class GroqProvider(OpenAICompatProvider):
         )
 
 
+
 class GeminiProvider(OpenAICompatProvider):
     name = "gemini"
 
@@ -161,7 +162,7 @@ class GeminiProvider(OpenAICompatProvider):
         self,
         api_key: str,
         model: str = "gemini-3.8-flash",
-        timeout: float = 40.0,
+        timeout: float = 60.0,
     ):
         super().__init__(
             "https://generativelanguage.googleapis.com/v1beta/openai",
@@ -177,7 +178,6 @@ class GeminiProvider(OpenAICompatProvider):
         temperature: float = 0.3,
         max_tokens: int = 800,
     ) -> LLMReply:
-
         retryable_codes = ("429", "500", "502", "503", "504")
 
         for attempt in range(3):
@@ -190,34 +190,30 @@ class GeminiProvider(OpenAICompatProvider):
                 )
 
             except LLMError as error:
+                error_text = str(error).lower()
 
-               error_text = str(error).lower()
-
-retryable = (
-    any(code in error_text for code in retryable_codes)
-    or "timeout" in error_text
-    or "timed out" in error_text
-)
+                retryable = (
+                    any(code in error_text for code in retryable_codes)
+                    or "timeout" in error_text
+                    or "timed out" in error_text
+                )
 
                 if not retryable or attempt == 2:
-                    log.error(
-                        "Gemini request failed: %s",
-                        error,
-                    )
+                    log.error("Gemini request failed: %s", error)
                     raise
 
                 delay = 2 ** (attempt + 1)
 
                 log.warning(
                     "Gemini temporarily unavailable. "
-                    "Retrying in %s seconds (attempt %s/3)",
+                    "Retrying in %s seconds.",
                     delay,
-                    attempt + 1,
                 )
 
                 await asyncio.sleep(delay)
 
-        raise LLMError("Gemini retry attempts exhausted")
+
+
 
 
 def get_provider(settings: Settings) -> LLMProvider | None:
