@@ -751,6 +751,73 @@ input:focus-visible, select:focus-visible, textarea:focus-visible, .btn:focus-vi
   .toast { bottom: 104px; }
 }
 
+/* ========================================
+   KACHRA MITRA - DESKTOP WEBCAM
+======================================== */
+
+.camera-trigger {
+    border: none;
+    padding: 0;
+    background: transparent;
+    font: inherit;
+    cursor: pointer;
+}
+
+.webcam-wrap {
+    position: absolute;
+    inset: 0;
+    z-index: 10;
+    overflow: hidden;
+    background: #020807;
+    border-radius: inherit;
+}
+
+.webcam-wrap video {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.webcam-actions {
+    position: absolute;
+    bottom: 22px;
+    left: 0;
+    right: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 14px;
+    padding: 0 16px;
+}
+
+.webcam-action {
+    border: 1px solid rgba(255,255,255,.4);
+    border-radius: 999px;
+    padding: 13px 20px;
+    color: white;
+    background: rgba(10,30,27,.85);
+    font: inherit;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.webcam-action.webcam-capture {
+    color: #073c35;
+    background: #d8fff4;
+    border-color: #d8fff4;
+}
+
+.lens-stage.camera-active .lens-empty,
+.lens-stage.camera-active .lens-controls,
+.lens-stage.camera-active .lens-brackets,
+.lens-stage.camera-active .lens-scanline,
+.lens-stage.camera-active .lens-badge,
+.lens-stage.camera-active .lens-hint {
+    display: none !important;
+}
+
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
   html { scroll-behavior: auto; }
