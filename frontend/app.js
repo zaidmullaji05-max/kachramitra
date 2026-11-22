@@ -441,7 +441,8 @@
     chatBusy: false,
     auth: null,
     authMode: "in",
-    selectedFacility: null
+    selectedFacility: null,
+    cameraStream: null
   };
   if (!STR[state.lang]) state.lang = "en";
 
@@ -740,6 +741,111 @@
     }
   }
 
+// ========================================
+// KACHRA MITRA - DESKTOP WEBCAM
+// ========================================
+
+function stopWebcam() {
+    if (state.cameraStream) {
+        state.cameraStream.getTracks().forEach(track => track.stop());
+        state.cameraStream = null;
+    }
+
+    const video = $("#webcam-preview");
+
+    if (video) {
+        video.srcObject = null;
+    }
+
+    $("#webcam-wrap")?.classList.add("hidden");
+    $("#lens-stage")?.classList.remove("camera-active");
+}
+
+async function openWebcam() {
+    if (!navigator.mediaDevices?.getUserMedia) {
+        toast("Camera is unavailable. Please use Gallery instead.");
+        return;
+    }
+
+    try {
+        stopWebcam();
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+            audio: false,
+            video: {
+                facingMode: "user",
+                width: { ideal: 1280 },
+                height: { ideal: 720 }
+            }
+        });
+
+        state.cameraStream = stream;
+
+        const video = $("#webcam-preview");
+        video.srcObject = stream;
+
+        $("#webcam-wrap").classList.remove("hidden");
+        $("#lens-stage").classList.add("camera-active");
+
+        await video.play();
+
+    } catch (error) {
+        console.error("Webcam error:", error);
+
+        if (error.name === "NotAllowedError") {
+            toast("Please allow camera permission in your browser.");
+        } else if (error.name === "NotFoundError") {
+            toast("No webcam found on this device.");
+        } else if (error.name === "NotReadableError") {
+            toast("Camera is being used by another application.");
+        } else {
+            toast("Unable to open webcam. Check camera permissions.");
+        }
+    }
+}
+
+async function captureWebcamPhoto() {
+    const video = $("#webcam-preview");
+
+    if (!state.cameraStream || !video.videoWidth) {
+        toast("Camera is not ready. Please wait.");
+        return;
+    }
+
+    const canvas = document.createElement("canvas");
+
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+
+    const context = canvas.getContext("2d");
+
+    context.drawImage(
+        video,
+        0,
+        0,
+        canvas.width,
+        canvas.height
+    );
+
+    const blob = await new Promise(resolve =>
+        canvas.toBlob(resolve, "image/jpeg", 0.9)
+    );
+
+    if (!blob) {
+        toast("Photo capture failed.");
+        return;
+    }
+
+    const photo = new File(
+        [blob],
+        "kachra-webcam-" + Date.now() + ".jpg",
+        { type: "image/jpeg" }
+    );
+
+    stopWebcam();
+    setFile(photo);
+}
+
   function setFile(file) {
     if (!file) return;
     if (!file.type.startsWith("image/")) { toast(t("errImage")); return; }
@@ -760,6 +866,8 @@
   }
 
   function clearPhoto() {
+    stopWebcam();
+    
     state.file = null;
     state.uploadPromise = null;
     $("#preview").removeAttribute("src");
@@ -1359,6 +1467,15 @@
     $$(".navbtn").forEach((b) => b.addEventListener("click", () => showTab(b.dataset.tab)));
 
     $("#camera").addEventListener("change", (e) => setFile(e.target.files[0]));
+    $("#open-camera").addEventListener("click", openWebcam);
+    $("#webcam-capture").addEventListener(
+    "click",
+    captureWebcamPhoto
+    );
+    $("#webcam-cancel").addEventListener(
+    "click",
+    stopWebcam
+    );
     $("#upload").addEventListener("change", (e) => setFile(e.target.files[0]));
     $("#clear-photo").addEventListener("click", clearPhoto);
     $("#classify-btn").addEventListener("click", classify);
