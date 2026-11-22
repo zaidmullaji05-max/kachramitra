@@ -770,14 +770,21 @@ async function openWebcam() {
     try {
         stopWebcam();
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-                facingMode: "user",
-                width: { ideal: 1280 },
-                height: { ideal: 720 }
-            }
-        });
+      
+const isMobile = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)
+    || (navigator.maxTouchPoints > 1 && /Macintosh/i.test(navigator.userAgent));
+
+const stream = await navigator.mediaDevices.getUserMedia({
+    audio: false,
+    video: {
+        facingMode: {
+            ideal: isMobile ? "environment" : "user"
+        },
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+    }
+});
+
 
         state.cameraStream = stream;
 
