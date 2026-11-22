@@ -40,9 +40,25 @@
           <p class="lens-empty-sub" data-i18n="scan.center">Keep one item inside the frame — good light, clean background.</p>
         </div>
 
-        <div id="preview-wrap" class="preview-wrap hidden">
-          <img id="preview" alt="Selected waste item">
-        </div>
+       <div id="preview-wrap" class="preview-wrap hidden">
+    <img id="preview" alt="Selected waste item">
+</div>
+
+<!-- Laptop and desktop webcam -->
+<div id="webcam-wrap" class="webcam-wrap hidden">
+    <video id="webcam-preview" autoplay playsinline muted></video>
+
+    <div class="webcam-actions">
+        <button id="webcam-cancel" type="button" class="webcam-action">
+            Cancel
+        </button>
+
+        <button id="webcam-capture" type="button"
+                class="webcam-action webcam-capture">
+            Capture Photo
+        </button>
+    </div>
+</div>
 
         <div class="lens-brackets" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         <div class="lens-scanline" aria-hidden="true"></div>
@@ -71,11 +87,17 @@
             <span id="classify-label" class="sr-only" data-i18n="scan.analyse">Scan item</span>
           </button>
 
-          <label class="lens-side" for="camera" title="Take a photo">
-            <span class="lens-side-icon" aria-hidden="true">📷</span>
-            <span data-i18n="scan.cameraShort">Camera</span>
-          </label>
-          <input id="camera" type="file" accept="image/*" capture="environment" hidden>
+         <button id="open-camera" type="button"
+        class="lens-side camera-trigger"
+        title="Open webcam">
+    <span class="lens-side-icon" aria-hidden="true">📷</span>
+    <span data-i18n="scan.cameraShort">Camera</span>
+</button>
+
+<input id="camera" type="file"
+       accept="image/*"
+       capture="environment"
+       hidden>
         </div>
       </div>
 
